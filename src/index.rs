@@ -1,4 +1,5 @@
 use std::fs;
+use std::sync::atomic;
 
 struct Metadata {
 	path: std::path::PathBuf,
@@ -50,7 +51,7 @@ impl Index {
 		}
 	}
 
-	pub fn expand_all(&mut self) {
+	pub fn expand_all<T: ProgressCounter>(&mut self, progress: &T) {
 		let mut queue = vec![0];
 		while let Some(entry_index) = queue.pop() {
 			let (metadata, _) = &self.entries[entry_index];
@@ -77,6 +78,7 @@ impl Index {
 				unreachable!()
 			};
 			dir.entry_handles = Some(handles);
+			progress.update(self.entries.len())
 		}
 	}
 
@@ -86,5 +88,37 @@ impl Index {
 
 	pub fn file_count(&self) -> usize {
 		self.entries.iter().filter(|(_, entry)| entry.is_file()).count()
+	}
+}
+
+pub trait ProgressCounter {
+	fn update(&self, count: usize);
+}
+
+pub struct NopProgressCounter;
+
+impl ProgressCounter for NopProgressCounter {
+	fn update(&self, _count: usize) {}
+}
+
+pub struct AtomicProgressCounter {
+	counter: atomic::AtomicUsize,
+}
+
+impl AtomicProgressCounter {
+	pub fn new() -> Self {
+		Self {
+			counter: atomic::AtomicUsize::new(0),
+		}
+	}
+
+	pub fn value(&self) -> usize {
+		self.counter.load(atomic::Ordering::Relaxed)
+	}
+}
+
+impl ProgressCounter for AtomicProgressCounter {
+	fn update(&self, count: usize) {
+		self.counter.store(count, atomic::Ordering::Release)
 	}
 }
