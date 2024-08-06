@@ -16,6 +16,12 @@ To view stats about a path use the `stats` subcommand:
 cargo run -- stats "/some/path/here"
 ```
 
+To compare two directories use the `diff` subcommand:
+
+```bash
+cargo run -- diff "/path/to/a" "path/to/b"
+```
+
 For a full list of sub-commands and arguments, use `--help`:
 
 ```bash
