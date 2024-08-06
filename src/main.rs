@@ -1,9 +1,13 @@
+use std::env;
+use std::path::PathBuf;
 use std::sync::atomic;
 use std::sync::Arc;
 use std::thread;
 use std::time::SystemTime;
 
+use clap::Args;
 use clap::Parser;
+use clap::Subcommand;
 
 mod index;
 
@@ -11,14 +15,35 @@ mod index;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Cli {
-	/// Optional path to operate on, or the current path.
-	name: Option<String>,
+	#[command(subcommand)]
+	command: Command,
+}
+
+/// Doc comment
+#[derive(Subcommand, Debug)]
+enum Command {
+	/// Show folder statistics.
+	Stats(Stats),
+}
+
+#[derive(Args, Debug)]
+struct Stats {
+	/// Path to operate on, or the current path if not provided.
+	name: Option<PathBuf>,
 }
 
 fn main() {
 	let cli = Cli::parse();
-	let path = cli.name.unwrap_or("./".to_owned());
+	let path = env::current_dir().unwrap();
+	match cli.command {
+		Command::Stats(command_stats) => {
+			let path = command_stats.name.unwrap_or(path);
+			stats(path)
+		}
+	}
+}
 
+fn stats(path: PathBuf) {
 	let mut index = index::Index::with(&path);
 	let task = Arc::new(Task {
 		counter: index::AtomicProgressCounter::new(),
