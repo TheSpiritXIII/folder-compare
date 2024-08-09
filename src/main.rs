@@ -1,3 +1,5 @@
+#![warn(clippy::pedantic)]
+
 use std::env;
 use std::path::PathBuf;
 use std::sync::atomic;
@@ -50,17 +52,17 @@ fn main() -> Result<()> {
 	match cli.command {
 		Command::Stats(command_stats) => {
 			let path = command_stats.name.unwrap_or(path);
-			stats(path)
+			stats(&path)
 		}
 		Command::Diff(command_diff) => {
 			let dst = command_diff.dst.unwrap_or(path);
-			diff(command_diff.src, dst)
+			diff(&command_diff.src, &dst)
 		}
 	}
 }
 
-fn stats(path: PathBuf) -> Result<()> {
-	let mut index = index::Index::with(&path)?;
+fn stats(path: &PathBuf) -> Result<()> {
+	let mut index = index::Index::with(path)?;
 	let task = Arc::new(Task::new());
 
 	let task_thread = task.clone();
@@ -111,13 +113,13 @@ impl Task {
 	}
 
 	fn set_done(&self) {
-		self.done.store(true, atomic::Ordering::SeqCst)
+		self.done.store(true, atomic::Ordering::SeqCst);
 	}
 }
 
-fn diff(src: PathBuf, dst: PathBuf) -> Result<()> {
-	let mut index_src = index::Index::with(&src)?;
-	let mut index_dst = index::Index::with(&dst)?;
+fn diff(src: &PathBuf, dst: &PathBuf) -> Result<()> {
+	let mut index_src = index::Index::with(src)?;
+	let mut index_dst = index::Index::with(dst)?;
 
 	let task_src = Arc::new(Task::new());
 	let task_dst = Arc::new(Task::new());
@@ -145,11 +147,11 @@ fn diff(src: PathBuf, dst: PathBuf) -> Result<()> {
 		});
 		s.spawn(|| {
 			index_src.expand_all(&task_src.counter);
-			task_src.set_done()
+			task_src.set_done();
 		});
 
 		index_dst.expand_all(&task_dst.counter);
-		task_dst.set_done()
+		task_dst.set_done();
 	});
 
 	let count_src = index_src.entry_count();
@@ -164,13 +166,13 @@ fn diff(src: PathBuf, dst: PathBuf) -> Result<()> {
 	for diff in &diff_list {
 		match diff {
 			index::Diff::Added(name) => {
-				println!("+ {name}")
+				println!("+ {name}");
 			}
 			index::Diff::Removed(name) => {
-				println!("- {name}")
+				println!("- {name}");
 			}
 			index::Diff::Changed(name) => {
-				println!("Δ {name}")
+				println!("Δ {name}");
 			}
 		}
 	}

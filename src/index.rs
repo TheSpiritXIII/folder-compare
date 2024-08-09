@@ -47,9 +47,7 @@ impl Index {
 	pub fn with(path: impl AsRef<std::path::Path>) -> io::Result<Self> {
 		let p = path.as_ref().canonicalize()?;
 		let metadata = Metadata::new(&p);
-		if !p.is_dir() {
-			panic!("only works on dirs for now");
-		}
+		assert!(p.is_dir(), "only works on dirs for now");
 		Ok(Self {
 			entries: vec![(metadata, Entry::Dir(Dir::new()))],
 		})
@@ -69,20 +67,18 @@ impl Index {
 				};
 				if fs_metadata.is_file() {
 					handles.push(self.entries.len());
-					self.entries.push((metadata, Entry::File))
+					self.entries.push((metadata, Entry::File));
 				} else if fs_metadata.is_dir() {
 					handles.push(self.entries.len());
 					queue.push(self.entries.len());
-					self.entries.push((metadata, Entry::Dir(Dir::new())))
+					self.entries.push((metadata, Entry::Dir(Dir::new())));
 				}
 			}
-			let dir = if let Entry::Dir(dir) = &mut self.entries[entry_index].1 {
-				dir
-			} else {
+			let Entry::Dir(dir) = &mut self.entries[entry_index].1 else {
 				unreachable!()
 			};
 			dir.entry_handles = Some(handles);
-			progress.update(self.entries.len())
+			progress.update(self.entries.len());
 		}
 	}
 
@@ -192,6 +188,6 @@ impl AtomicProgressCounter {
 
 impl ProgressCounter for AtomicProgressCounter {
 	fn update(&self, count: usize) {
-		self.counter.store(count, atomic::Ordering::Release)
+		self.counter.store(count, atomic::Ordering::Release);
 	}
 }
