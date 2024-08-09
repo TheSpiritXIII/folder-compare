@@ -5,6 +5,8 @@ use std::sync::Arc;
 use std::thread;
 use std::time::SystemTime;
 
+use anyhow::Context;
+use anyhow::Result;
 use clap::Args;
 use clap::Parser;
 use clap::Subcommand;
@@ -42,9 +44,9 @@ struct Diff {
 	dst: Option<PathBuf>,
 }
 
-fn main() {
+fn main() -> Result<()> {
 	let cli = Cli::parse();
-	let path = env::current_dir().unwrap();
+	let path = env::current_dir().context("Unable to retrieve the current directory")?;
 	match cli.command {
 		Command::Stats(command_stats) => {
 			let path = command_stats.name.unwrap_or(path);
@@ -57,8 +59,8 @@ fn main() {
 	}
 }
 
-fn stats(path: PathBuf) {
-	let mut index = index::Index::with(&path);
+fn stats(path: PathBuf) -> Result<()> {
+	let mut index = index::Index::with(&path)?;
 	let task = Arc::new(Task::new());
 
 	let task_thread = task.clone();
@@ -88,6 +90,7 @@ fn stats(path: PathBuf) {
 	println!("{file_count} files.");
 	let dir_count = count - file_count;
 	println!("{dir_count} directories.");
+	Ok(())
 }
 
 struct Task {
@@ -112,9 +115,9 @@ impl Task {
 	}
 }
 
-fn diff(src: PathBuf, dst: PathBuf) {
-	let mut index_src = index::Index::with(&src);
-	let mut index_dst = index::Index::with(&dst);
+fn diff(src: PathBuf, dst: PathBuf) -> Result<()> {
+	let mut index_src = index::Index::with(&src)?;
+	let mut index_dst = index::Index::with(&dst)?;
 
 	let task_src = Arc::new(Task::new());
 	let task_dst = Arc::new(Task::new());
@@ -171,4 +174,5 @@ fn diff(src: PathBuf, dst: PathBuf) {
 			}
 		}
 	}
+	Ok(())
 }

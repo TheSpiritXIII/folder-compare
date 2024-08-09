@@ -1,4 +1,5 @@
 use std::fs;
+use std::io;
 use std::sync::atomic;
 
 struct Metadata {
@@ -43,15 +44,15 @@ pub struct Index {
 }
 
 impl Index {
-	pub fn with(path: impl AsRef<std::path::Path>) -> Self {
-		let p = path.as_ref().canonicalize().unwrap();
+	pub fn with(path: impl AsRef<std::path::Path>) -> io::Result<Self> {
+		let p = path.as_ref().canonicalize()?;
 		let metadata = Metadata::new(&p);
 		if !p.is_dir() {
 			panic!("only works on dirs for now");
 		}
-		Self {
+		Ok(Self {
 			entries: vec![(metadata, Entry::Dir(Dir::new()))],
-		}
+		})
 	}
 
 	pub fn expand_all<T: ProgressCounter>(&mut self, progress: &T) {
@@ -108,9 +109,9 @@ impl Index {
 						let name = relative_name.to_string_lossy().into_owned();
 						diff_list.push(Diff::Changed(name));
 					}
-					continue
+					continue;
 				}
-				if !self.contents_same(other, relative_name) {
+				if !self.contents_same(other, relative_name).unwrap() {
 					let name = relative_name.to_string_lossy().into_owned();
 					diff_list.push(Diff::Changed(name));
 				}
@@ -148,12 +149,12 @@ impl Index {
 		self.entries[0].0.path.parent().unwrap()
 	}
 
-	fn contents_same(&self, other: &Index, path: &std::path::Path) -> bool {
+	fn contents_same(&self, other: &Index, path: &std::path::Path) -> io::Result<bool> {
 		let root_path_self = self.root_path();
 		let root_path_other = other.root_path();
-		let contents_self = fs::read(root_path_self.join(path)).unwrap();
-		let contents_other = fs::read(root_path_other.join(path)).unwrap();
-		contents_self == contents_other
+		let contents_self = fs::read(root_path_self.join(path))?;
+		let contents_other = fs::read(root_path_other.join(path))?;
+		Ok(contents_self == contents_other)
 	}
 }
 
