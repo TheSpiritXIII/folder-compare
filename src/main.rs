@@ -62,7 +62,10 @@ fn main() -> Result<()> {
 }
 
 fn stats(path: &PathBuf) -> Result<()> {
-	let mut index = index::Index::with(path)?;
+	let mut index = index::Index::with(path).with_context(|| {
+		let path = path.to_string_lossy();
+		format!("Unable to index: {path}")
+	})?;
 	let task = Arc::new(Task::new());
 
 	let task_thread = task.clone();
@@ -118,8 +121,14 @@ impl Task {
 }
 
 fn diff(src: &PathBuf, dst: &PathBuf) -> Result<()> {
-	let mut index_src = index::Index::with(src)?;
-	let mut index_dst = index::Index::with(dst)?;
+	let mut index_src = index::Index::with(src).with_context(|| {
+		let path = src.to_string_lossy();
+		format!("Unable to index: {path}")
+	})?;
+	let mut index_dst = index::Index::with(dst).with_context(|| {
+		let path = dst.to_string_lossy();
+		format!("Unable to index: {path}")
+	})?;
 
 	let task_src = Arc::new(Task::new());
 	let task_dst = Arc::new(Task::new());

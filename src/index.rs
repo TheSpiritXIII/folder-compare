@@ -47,6 +47,10 @@ impl Index {
 	pub fn with(path: impl AsRef<std::path::Path>) -> io::Result<Self> {
 		let p = path.as_ref().canonicalize()?;
 		let metadata = Metadata::new(&p);
+		if !p.is_dir() {
+			// TODO: https://github.com/rust-lang/rust/pull/128316 use ErrorKind::NotADirectory.
+			return Err(io::Error::new(io::ErrorKind::Other, "not a directory"))
+		}
 		assert!(p.is_dir(), "only works on dirs for now");
 		Ok(Self {
 			entries: vec![(metadata, Entry::Dir(Dir::new()))],
