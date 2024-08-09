@@ -44,8 +44,11 @@ pub struct Index {
 
 impl Index {
 	pub fn with(path: impl AsRef<std::path::Path>) -> Self {
-		let p = std::path::absolute(path).unwrap();
+		let p = path.as_ref().canonicalize().unwrap();
 		let metadata = Metadata::new(&p);
+		if !p.is_dir() {
+			panic!("only works on dirs for now");
+		}
 		Self {
 			entries: vec![(metadata, Entry::Dir(Dir::new()))],
 		}
@@ -89,6 +92,75 @@ impl Index {
 	pub fn file_count(&self) -> usize {
 		self.entries.iter().filter(|(_, entry)| entry.is_file()).count()
 	}
+
+	pub fn diff(&self, other: &Index) -> Vec<Diff> {
+		let root_path = self.root_path();
+		let root_path_other = other.root_path();
+		let mut diff_list = Vec::new();
+		let mut processed_list = vec![false; other.entries.len()];
+		for (metadata, entry) in &self.entries {
+			let relative_name = metadata.path.strip_prefix(root_path).unwrap();
+			let other_index = other.find_by_name(relative_name);
+			if let Some(index) = other_index {
+				processed_list[index] = true;
+				if !entry.is_file() {
+					if other.entries[index].1.is_file() {
+						let name = relative_name.to_string_lossy().into_owned();
+						diff_list.push(Diff::Changed(name));
+					}
+					continue
+				}
+				if !self.contents_same(other, relative_name) {
+					let name = relative_name.to_string_lossy().into_owned();
+					diff_list.push(Diff::Changed(name));
+				}
+			} else {
+				let name = relative_name.to_string_lossy().into_owned();
+				diff_list.push(Diff::Added(name));
+			}
+		}
+		for (processed_index, processed) in processed_list.iter().enumerate() {
+			if !processed {
+				let name = other.entries[processed_index]
+					.0
+					.path
+					.strip_prefix(root_path_other)
+					.unwrap()
+					.to_string_lossy()
+					.into_owned();
+				diff_list.push(Diff::Removed(name));
+			}
+		}
+		diff_list
+	}
+
+	fn find_by_name(&self, name: impl AsRef<std::path::Path>) -> Option<usize> {
+		let root_path = self.root_path();
+		for (index, (metadata, _)) in self.entries.iter().enumerate() {
+			if metadata.path.strip_prefix(root_path).unwrap() == name.as_ref() {
+				return Some(index);
+			}
+		}
+		None
+	}
+
+	fn root_path(&self) -> &std::path::Path {
+		self.entries[0].0.path.parent().unwrap()
+	}
+
+	fn contents_same(&self, other: &Index, path: &std::path::Path) -> bool {
+		let root_path_self = self.root_path();
+		let root_path_other = other.root_path();
+		let contents_self = fs::read(root_path_self.join(path)).unwrap();
+		let contents_other = fs::read(root_path_other.join(path)).unwrap();
+		contents_self == contents_other
+	}
+}
+
+pub enum Diff {
+	Added(String),
+	Removed(String),
+	Changed(String),
 }
 
 pub trait ProgressCounter {

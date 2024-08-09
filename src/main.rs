@@ -152,10 +152,23 @@ fn diff(src: PathBuf, dst: PathBuf) {
 	let count_src = index_src.entry_count();
 	let count_dst = index_dst.entry_count();
 	println!("Found {count_src} vs {count_dst} total entries!");
-	let file_count_src = index_src.file_count();
-	let file_count_dst = index_dst.file_count();
-	println!("{file_count_src} vs {file_count_dst} files.");
-	let dir_count_src = count_src - file_count_src;
-	let dir_count_dst = count_dst - file_count_dst;
-	println!("{dir_count_src} vs {dir_count_dst} directories.");
+
+	let diff_list = index_src.diff(&index_dst);
+	if diff_list.is_empty() {
+		println!("No changes");
+	}
+
+	for diff in &diff_list {
+		match diff {
+			index::Diff::Added(name) => {
+				println!("+ {name}")
+			}
+			index::Diff::Removed(name) => {
+				println!("- {name}")
+			}
+			index::Diff::Changed(name) => {
+				println!("Δ {name}")
+			}
+		}
+	}
 }
