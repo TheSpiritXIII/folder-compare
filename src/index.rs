@@ -1,5 +1,7 @@
 use std::fs;
-use std::io;
+use std::fs::File;
+use std::io::Read;
+use std::io::{self};
 use std::sync::atomic;
 
 struct Metadata {
@@ -49,7 +51,7 @@ impl Index {
 		let metadata = Metadata::new(&p);
 		if !p.is_dir() {
 			// TODO: https://github.com/rust-lang/rust/pull/128316 use ErrorKind::NotADirectory.
-			return Err(io::Error::new(io::ErrorKind::Other, "not a directory"))
+			return Err(io::Error::new(io::ErrorKind::Other, "not a directory"));
 		}
 		assert!(p.is_dir(), "only works on dirs for now");
 		Ok(Self {
@@ -95,10 +97,20 @@ impl Index {
 	}
 
 	pub fn diff(&self, other: &Index) -> Vec<Diff> {
+		// Size of buffer to compare files, optimized for an 8 KiB average file-size.
+		// Dinneen, Jesse & Nguyen, Ba. (2021). How Big Are Peoples' Computer Files? File Size
+		// Distributions Among User-managed Collections.
+		const BUF_SIZE: usize = 1024 * 8;
+
 		let root_path = self.root_path();
 		let root_path_other = other.root_path();
 		let mut diff_list = Vec::new();
 		let mut processed_list = vec![false; other.entries.len()];
+
+		// Ensure we use heap memory so we don't overflow the stack.
+		let mut buf_self = vec![0; BUF_SIZE];
+		let mut buf_other = vec![0; BUF_SIZE];
+
 		for (metadata, entry) in &self.entries {
 			let relative_name = metadata.path.strip_prefix(root_path).unwrap();
 			let other_index = other.find_by_name(relative_name);
@@ -111,7 +123,10 @@ impl Index {
 					}
 					continue;
 				}
-				if !self.contents_same(other, relative_name).unwrap() {
+				if !self
+					.contents_same(other, relative_name, &mut buf_self, &mut buf_other)
+					.unwrap()
+				{
 					let name = relative_name.to_string_lossy().into_owned();
 					diff_list.push(Diff::Changed(name));
 				}
@@ -149,12 +164,31 @@ impl Index {
 		self.entries[0].0.path.parent().unwrap()
 	}
 
-	fn contents_same(&self, other: &Index, path: &std::path::Path) -> io::Result<bool> {
+	fn contents_same(
+		&self,
+		other: &Index,
+		path: &std::path::Path,
+		buf1: &mut [u8],
+		buf2: &mut [u8],
+	) -> io::Result<bool> {
+		debug_assert!(buf1.len() == buf2.len());
 		let root_path_self = self.root_path();
 		let root_path_other = other.root_path();
-		let contents_self = fs::read(root_path_self.join(path))?;
-		let contents_other = fs::read(root_path_other.join(path))?;
-		Ok(contents_self == contents_other)
+		let mut file_self = File::open(root_path_self.join(path))?;
+		let mut file_other = File::open(root_path_other.join(path))?;
+		loop {
+			let amount_self = file_self.read(buf1)?;
+			let amount_other = file_other.read(buf2)?;
+			if amount_self != amount_other {
+				return Ok(false);
+			}
+			if amount_self == 0 {
+				return Ok(true);
+			}
+			if buf1 != buf2 {
+				return Ok(false);
+			}
+		}
 	}
 }
 
