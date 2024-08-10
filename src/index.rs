@@ -96,7 +96,7 @@ impl Index {
 		self.entries.iter().filter(|(_, entry)| entry.is_file()).count()
 	}
 
-	pub fn diff(&self, other: &Index) -> Vec<Diff> {
+	pub fn diff<T: ProgressCounter>(&self, other: &Index, progress: &T) -> Vec<Diff> {
 		// Size of buffer to compare files, optimized for an 8 KiB average file-size.
 		// Dinneen, Jesse & Nguyen, Ba. (2021). How Big Are Peoples' Computer Files? File Size
 		// Distributions Among User-managed Collections.
@@ -111,7 +111,8 @@ impl Index {
 		let mut buf_self = vec![0; BUF_SIZE];
 		let mut buf_other = vec![0; BUF_SIZE];
 
-		for (metadata, entry) in &self.entries {
+		for (index, (metadata, entry)) in self.entries.iter().enumerate() {
+			progress.update(index);
 			let relative_name = metadata.path.strip_prefix(root_path).unwrap();
 			let other_index = other.find_by_name(relative_name);
 			if let Some(index) = other_index {
@@ -123,9 +124,7 @@ impl Index {
 					}
 					continue;
 				}
-				if !self
-					.contents_same(other, relative_name, &mut buf_self, &mut buf_other)
-					.unwrap()
+				if !self.contents_same(other, relative_name, &mut buf_self, &mut buf_other).unwrap()
 				{
 					let name = relative_name.to_string_lossy().into_owned();
 					diff_list.push(Diff::Changed(name));
@@ -136,6 +135,7 @@ impl Index {
 			}
 		}
 		for (processed_index, processed) in processed_list.iter().enumerate() {
+			progress.update(self.entry_count() + processed_index);
 			if !processed {
 				let name = other.entries[processed_index]
 					.0

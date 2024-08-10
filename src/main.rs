@@ -69,21 +69,15 @@ fn stats(path: &PathBuf) -> Result<()> {
 	let task = Arc::new(Task::new());
 
 	let task_thread = task.clone();
+
 	let print_thread = thread::spawn(move || {
-		loop {
-			let now = SystemTime::now();
-			loop {
-				if task_thread.done() {
-					return;
-				}
-				if now.elapsed().unwrap().as_secs() >= 1 {
-					break;
-				}
-				thread::yield_now();
-			}
-			let found = task_thread.counter.value();
-			println!("Discovered {found} entries...");
-		}
+		interval(
+			|| task_thread.done(),
+			|| {
+				let found = task_thread.counter.value();
+				println!("Discovered {found} entries...");
+			},
+		);
 	});
 	index.expand_all(&task.counter);
 	task.set_done();
@@ -96,6 +90,24 @@ fn stats(path: &PathBuf) -> Result<()> {
 	let dir_count = count - file_count;
 	println!("{dir_count} directories.");
 	Ok(())
+}
+
+/// Runs the given `run_fn` every second, as long as `is_done_fn` is false. It is possible that
+/// `run_fn` never runs if `is_done_fn` is true.
+fn interval(is_done_fn: impl Fn() -> bool, run_fn: impl Fn()) {
+	loop {
+		let now = SystemTime::now();
+		loop {
+			if is_done_fn() {
+				return;
+			}
+			if now.elapsed().unwrap().as_secs() >= 1 {
+				break;
+			}
+			thread::yield_now();
+		}
+		run_fn();
+	}
 }
 
 struct Task {
@@ -137,22 +149,15 @@ fn diff(src: &PathBuf, dst: &PathBuf) -> Result<()> {
 	let task_thread_dst = task_dst.clone();
 	thread::scope(|s| {
 		s.spawn(|| {
-			loop {
-				let now = SystemTime::now();
-				loop {
-					if task_thread_src.done() && task_thread_dst.done() {
-						return;
-					}
-					if now.elapsed().unwrap().as_secs() >= 1 {
-						break;
-					}
-					thread::yield_now();
-				}
-				let found_src = task_thread_src.counter.value();
-				let found_dst = task_thread_dst.counter.value();
-				let found = found_src + found_dst;
-				println!("Discovered {found} entries...");
-			}
+			interval(
+				|| task_thread_src.done() && task_thread_dst.done(),
+				|| {
+					let found_src = task_thread_src.counter.value();
+					let found_dst = task_thread_dst.counter.value();
+					let found = found_src + found_dst;
+					println!("Discovered {found} entries...");
+				},
+			);
 		});
 		s.spawn(|| {
 			index_src.expand_all(&task_src.counter);
@@ -165,12 +170,29 @@ fn diff(src: &PathBuf, dst: &PathBuf) -> Result<()> {
 
 	let count_src = index_src.entry_count();
 	let count_dst = index_dst.entry_count();
-	println!("Found {count_src} vs {count_dst} total entries!");
+	let total = count_src + count_dst;
+	println!("Found {total} total entries!");
 
-	let diff_list = index_src.diff(&index_dst);
+	let task_diff = Arc::new(Task::new());
+	let task_diff_copy = task_diff.clone();
+	let print_thread = thread::spawn(move || {
+		interval(
+			|| task_diff_copy.done(),
+			|| {
+				let found = task_diff_copy.counter.value();
+				#[allow(clippy::cast_precision_loss)]
+				let percent = found as f64 / total as f64 * 100_f64;
+				println!("Compared {found} ({percent:04.1}%) entries...");
+			},
+		);
+	});
+
+	let diff_list = index_src.diff(&index_dst, &task_diff.counter);
 	if diff_list.is_empty() {
 		println!("No changes");
 	}
+	task_diff.set_done();
+	print_thread.join().unwrap();
 
 	for diff in &diff_list {
 		match diff {
