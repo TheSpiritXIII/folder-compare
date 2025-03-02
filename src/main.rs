@@ -81,10 +81,10 @@ fn update(command: &Update) -> Result<()> {
 			let path = command.index_path.to_string_lossy();
 			format!("Unable to open index: {path}")
 		})?;
-		index.add_dir(&command.src)?;
+		index.add(&command.src)?;
 		index
 	} else {
-		index2::Index::from_dir(&command.src)?
+		index2::Index::from_path(&command.src)?
 	};
 	index.save(&command.index_path)?;
 	Ok(())

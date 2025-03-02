@@ -25,39 +25,63 @@ pub struct Index {
 }
 
 impl Index {
+	// Recursively finds all files in the given directory and adds them to the index.
+	pub fn from_path(path: impl AsRef<std::path::Path>) -> io::Result<Self> {
+		let mut index = Self {
+			entries: Vec::new(),
+		};
+		if path.as_ref().is_dir() {
+			index.add_dir(path)?;
+			return Ok(index);
+		} else if path.as_ref().is_file() {
+			index.add_file(path)?;
+			return Ok(index);
+		}
+		// TODO: io::Result doesn't make sense for this.
+		Err(io::Error::from(io::ErrorKind::Unsupported))
+	}
+
+	pub fn add(&mut self, path: impl AsRef<std::path::Path>) -> io::Result<()> {
+		if path.as_ref().is_dir() {
+			self.remove_dir(path.as_ref());
+			self.add_dir(path)
+		} else if path.as_ref().is_file() {
+			self.remove_file(path.as_ref());
+			self.add_file(path)
+		} else {
+			// TODO: io::Result doesn't make sense for this.
+			Err(io::Error::from(io::ErrorKind::Unsupported))
+		}
+	}
+
+	fn add_dir(&mut self, path: impl AsRef<std::path::Path>) -> io::Result<()> {
+		self.read_dir_recursive(path.as_ref())?;
+		self.normalize();
+		Ok(())
+	}
+
+	fn add_file(&mut self, path: impl AsRef<std::path::Path>) -> io::Result<()> {
+		let checksum = Self::calculate_sha512_checksum(path.as_ref())?;
+		self.entries.push(Metadata {
+			filepath: path.as_ref().to_string_lossy().into_owned(),
+			checksum: Checksum {
+				sha512: checksum,
+			},
+		});
+		Ok(())
+	}
+
+	// Removes the directory in the given path.
 	fn remove_dir(&mut self, path: impl AsRef<std::path::Path>) {
 		let path_str = path.as_ref().to_string_lossy().into_owned();
 		self.entries.retain(|entry| !entry.filepath.starts_with(&path_str));
 	}
 
-	// Recursively finds all files in the given directory and adds them to the index.
-	pub fn from_dir(path: impl AsRef<std::path::Path>) -> io::Result<Self> {
-		let mut index = Self {
-			entries: Vec::new(),
-		};
-		if path.as_ref().is_file() {
-			index.add_file(path)?;
-			return Ok(index);
-		}
-		if path.as_ref().is_symlink() {
-			// TODO: io::Result doesn't make sense for this.
-			return Err(io::Error::from(io::ErrorKind::Unsupported));
-		}
-
-		index.read_dir_recursive(path.as_ref())?;
-		index.normalize();
-		Ok(index)
-	}
-
-	pub fn add_dir(&mut self, path: impl AsRef<std::path::Path>) -> io::Result<()> {
-		if !path.as_ref().is_dir() {
-			return Err(io::Error::from(io::ErrorKind::NotADirectory));
-		}
-		self.remove_dir(path.as_ref());
-
-		self.read_dir_recursive(path.as_ref())?;
-		self.normalize();
-		Ok(())
+	// Removes the file in the given path.
+	fn remove_file(&mut self, path: impl AsRef<std::path::Path>) {
+		let path_str = path.as_ref().to_string_lossy().into_owned();
+		// TODO: Optimize this with binary search.
+		self.entries.retain(|entry| entry.filepath != path_str);
 	}
 
 	fn read_dir_recursive(&mut self, path: &Path) -> io::Result<()> {
@@ -70,17 +94,6 @@ impl Index {
 				self.add_file(path)?;
 			}
 		}
-		Ok(())
-	}
-
-	fn add_file(&mut self, path: impl AsRef<std::path::Path>) -> io::Result<()> {
-		let checksum = Self::calculate_sha512_checksum(path.as_ref())?;
-		self.entries.push(Metadata {
-			filepath: path.as_ref().to_string_lossy().into_owned(),
-			checksum: Checksum {
-				sha512: checksum,
-			},
-		});
 		Ok(())
 	}
 
