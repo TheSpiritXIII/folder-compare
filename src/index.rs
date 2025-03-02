@@ -2,7 +2,8 @@ use std::fs;
 use std::fs::File;
 use std::io::Read;
 use std::io::{self};
-use std::sync::atomic;
+
+use crate::progress::ProgressCounter;
 
 struct Metadata {
 	path: std::path::PathBuf,
@@ -196,36 +197,4 @@ pub enum Diff {
 	Added(String),
 	Removed(String),
 	Changed(String),
-}
-
-pub trait ProgressCounter {
-	fn update(&self, count: usize);
-}
-
-pub struct NopProgressCounter;
-
-impl ProgressCounter for NopProgressCounter {
-	fn update(&self, _count: usize) {}
-}
-
-pub struct AtomicProgressCounter {
-	counter: atomic::AtomicUsize,
-}
-
-impl AtomicProgressCounter {
-	pub fn new() -> Self {
-		Self {
-			counter: atomic::AtomicUsize::new(0),
-		}
-	}
-
-	pub fn value(&self) -> usize {
-		self.counter.load(atomic::Ordering::Relaxed)
-	}
-}
-
-impl ProgressCounter for AtomicProgressCounter {
-	fn update(&self, count: usize) {
-		self.counter.store(count, atomic::Ordering::Release);
-	}
 }

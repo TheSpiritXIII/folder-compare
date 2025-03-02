@@ -1,5 +1,8 @@
 #![warn(clippy::pedantic)]
 
+mod index;
+mod progress;
+
 use std::env;
 use std::path::PathBuf;
 use std::sync::atomic;
@@ -12,8 +15,6 @@ use anyhow::Result;
 use clap::Args;
 use clap::Parser;
 use clap::Subcommand;
-
-mod index;
 
 /// Utility to compare folder contents.
 #[derive(Parser, Debug)]
@@ -111,14 +112,14 @@ fn interval(is_done_fn: impl Fn() -> bool, run_fn: impl Fn()) {
 }
 
 struct Task {
-	counter: index::AtomicProgressCounter,
+	counter: progress::AtomicProgressCounter,
 	done: atomic::AtomicBool,
 }
 
 impl Task {
 	fn new() -> Self {
 		Self {
-			counter: index::AtomicProgressCounter::new(),
+			counter: progress::AtomicProgressCounter::new(),
 			done: atomic::AtomicBool::new(false),
 		}
 	}
