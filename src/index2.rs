@@ -32,16 +32,19 @@ impl Index {
 
 	// Recursively finds all files in the given directory and adds them to the index.
 	pub fn from_dir(path: impl AsRef<std::path::Path>) -> io::Result<Self> {
-		if !path.as_ref().is_dir() {
-			return Err(io::Error::from(io::ErrorKind::NotADirectory));
+		let mut index = Self {
+			entries: Vec::new(),
+		};
+		if path.as_ref().is_file() {
+			index.add_file(path)?;
+			return Ok(index);
+		}
+		if path.as_ref().is_symlink() {
+			// TODO: io::Result doesn't make sense for this.
+			return Err(io::Error::from(io::ErrorKind::Unsupported));
 		}
 
-		let mut entries = Vec::new();
-		Self::read_dir_recursive(path.as_ref(), &mut entries)?;
-
-		let mut index = Self {
-			entries,
-		};
+		index.read_dir_recursive(path.as_ref())?;
 		index.normalize();
 		Ok(index)
 	}
@@ -52,31 +55,36 @@ impl Index {
 		}
 		self.remove_dir(path.as_ref());
 
-		Self::read_dir_recursive(path.as_ref(), &mut self.entries)?;
+		self.read_dir_recursive(path.as_ref())?;
 		self.normalize();
 		Ok(())
 	}
 
-	fn read_dir_recursive(path: &Path, entries: &mut Vec<Metadata>) -> io::Result<()> {
+	fn read_dir_recursive(&mut self, path: &Path) -> io::Result<()> {
 		for entry in fs::read_dir(path)? {
 			let entry = entry?;
 			let path = entry.path();
 			if path.is_dir() {
-				Self::read_dir_recursive(&path, entries)?;
+				self.read_dir_recursive(&path)?;
 			} else {
-				let checksum = Self::calculate_sha512_checksum(&path)?;
-				entries.push(Metadata {
-					filepath: path.to_string_lossy().into_owned(),
-					checksum: Checksum {
-						sha512: checksum,
-					},
-				});
+				self.add_file(path)?;
 			}
 		}
 		Ok(())
 	}
 
-	fn calculate_sha512_checksum(path: &Path) -> io::Result<String> {
+	fn add_file(&mut self, path: impl AsRef<std::path::Path>) -> io::Result<()> {
+		let checksum = Self::calculate_sha512_checksum(path.as_ref())?;
+		self.entries.push(Metadata {
+			filepath: path.as_ref().to_string_lossy().into_owned(),
+			checksum: Checksum {
+				sha512: checksum,
+			},
+		});
+		Ok(())
+	}
+
+	fn calculate_sha512_checksum(path: impl AsRef<Path>) -> io::Result<String> {
 		let mut file = fs::File::open(path)?;
 		let mut hasher = Sha512::new();
 		let mut buffer = Vec::new();
@@ -85,6 +93,7 @@ impl Index {
 		Ok(format!("{:x}", hasher.finalize()))
 	}
 
+	// TODO: Make this Windows-only.
 	// Normalizes the entries by replacing '\' with '/'.
 	fn normalize(&mut self) {
 		self.entries.sort_by(|a, b| a.filepath.cmp(&b.filepath));
@@ -93,7 +102,8 @@ impl Index {
 		}
 	}
 
-	// Stores the index entries as JSON on the filesystem.
+	// TODO: Validate file extension?
+	// Stores the index entries as RON on the filesystem.
 	pub fn save(&self, path: impl AsRef<Path>) -> io::Result<()> {
 		let json =
 			ron::ser::to_string_pretty(&self.entries, ron::ser::PrettyConfig::default()).unwrap();
@@ -101,7 +111,8 @@ impl Index {
 		Ok(())
 	}
 
-	// Opens an Index from a JSON file.
+	// TODO: Versioning?
+	// Opens an Index from a RON file.
 	pub fn open(path: impl AsRef<Path>) -> io::Result<Self> {
 		let json = fs::read_to_string(path)?;
 		let entries: Vec<Metadata> = ron::from_str(&json).unwrap();
