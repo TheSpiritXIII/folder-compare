@@ -1,6 +1,7 @@
 #![warn(clippy::pedantic)]
 
 mod index;
+mod index2;
 mod progress;
 
 use std::env;
@@ -27,10 +28,21 @@ struct Cli {
 /// Doc comment
 #[derive(Subcommand, Debug)]
 enum Command {
+	/// Indexes the given path.
+	Index(Update),
 	/// Show folder statistics.
 	Stats(Stats),
 	/// Find differences in two folders.
 	Diff(Diff),
+}
+
+#[derive(Args, Debug)]
+struct Update {
+	/// Source path to index.
+	src: PathBuf,
+
+	/// Path to store the index.
+	index_path: PathBuf,
 }
 
 #[derive(Args, Debug)]
@@ -51,16 +63,35 @@ fn main() -> Result<()> {
 	let cli = Cli::parse();
 	let path = env::current_dir().context("Unable to retrieve the current directory")?;
 	match cli.command {
-		Command::Stats(command_stats) => {
-			let path = command_stats.name.unwrap_or(path);
+		Command::Index(command) => {
+			update(&command)
+		}
+		Command::Stats(command) => {
+			let path = command.name.unwrap_or(path);
 			stats(&path)
 		}
-		Command::Diff(command_diff) => {
-			let dst = command_diff.dst.unwrap_or(path);
-			diff(&command_diff.src, &dst)
+		Command::Diff(command) => {
+			let dst = command.dst.unwrap_or(path);
+			diff(&command.src, &dst)
 		}
 	}
 }
+
+fn update(command: &Update) -> Result<()> {
+	let index = if command.index_path.exists() {
+		let mut index = index2::Index::open(&command.index_path).with_context(|| {
+			let path = command.index_path.to_string_lossy();
+			format!("Unable to open index: {path}")
+		})?;
+		index.add_dir(&command.src)?;
+		index
+	} else {
+		index2::Index::from_dir(&command.src)?
+	};
+	index.save(&command.index_path)?;
+	Ok(())
+}
+
 
 fn stats(path: &PathBuf) -> Result<()> {
 	let mut index = index::Index::with(path).with_context(|| {

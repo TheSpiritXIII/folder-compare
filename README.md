@@ -23,6 +23,12 @@ To compare two directories use the `diff` subcommand:
 cargo run -- diff "path/to/a" "path/to/b"
 ```
 
+To create an index file, use the `index` subcommand. Note, other subcommands cannot read it yet:
+
+```bash
+cargo run -- index "path/to/a" "index.ron"
+```
+
 For a full list of sub-commands and arguments, use `--help`:
 
 ```bash
