@@ -1,8 +1,12 @@
-use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha512};
 use std::fs;
-use std::io::{self, Read};
+use std::io::Read;
+use std::io::{self};
 use std::path::Path;
+
+use serde::Deserialize;
+use serde::Serialize;
+use sha2::Digest;
+use sha2::Sha512;
 
 #[derive(Serialize, Deserialize)]
 pub struct Metadata {
@@ -63,7 +67,7 @@ impl Index {
 				let checksum = Self::calculate_sha512_checksum(&path)?;
 				entries.push(Metadata {
 					filepath: path.to_string_lossy().into_owned(),
-					checksum: Checksum{
+					checksum: Checksum {
 						sha512: checksum,
 					},
 				});
@@ -91,7 +95,8 @@ impl Index {
 
 	// Stores the index entries as JSON on the filesystem.
 	pub fn save(&self, path: impl AsRef<Path>) -> io::Result<()> {
-		let json = ron::ser::to_string_pretty(&self.entries, ron::ser::PrettyConfig::default()).unwrap();
+		let json =
+			ron::ser::to_string_pretty(&self.entries, ron::ser::PrettyConfig::default()).unwrap();
 		fs::write(path, json)?;
 		Ok(())
 	}

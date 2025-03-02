@@ -63,9 +63,7 @@ fn main() -> Result<()> {
 	let cli = Cli::parse();
 	let path = env::current_dir().context("Unable to retrieve the current directory")?;
 	match cli.command {
-		Command::Index(command) => {
-			update(&command)
-		}
+		Command::Index(command) => update(&command),
 		Command::Stats(command) => {
 			let path = command.name.unwrap_or(path);
 			stats(&path)
@@ -91,7 +89,6 @@ fn update(command: &Update) -> Result<()> {
 	index.save(&command.index_path)?;
 	Ok(())
 }
-
 
 fn stats(path: &PathBuf) -> Result<()> {
 	let mut index = index::Index::with(path).with_context(|| {
