@@ -10,10 +10,10 @@ struct Metadata {
 }
 
 impl Metadata {
-	fn new(path: impl AsRef<std::path::Path>) -> Metadata {
-		return Metadata {
+	fn new(path: impl AsRef<std::path::Path>) -> Self {
+		Metadata {
 			path: path.as_ref().into(),
-		};
+		}
 	}
 }
 

@@ -25,7 +25,7 @@ pub struct Index {
 }
 
 impl Index {
-	fn remove_dir(self: &mut Self, path: impl AsRef<std::path::Path>) {
+	fn remove_dir(&mut self, path: impl AsRef<std::path::Path>) {
 		let path_str = path.as_ref().to_string_lossy().into_owned();
 		self.entries.retain(|entry| !entry.filepath.starts_with(&path_str));
 	}
@@ -46,7 +46,7 @@ impl Index {
 		Ok(index)
 	}
 
-	pub fn add_dir(self: &mut Self, path: impl AsRef<std::path::Path>) -> io::Result<()> {
+	pub fn add_dir(&mut self, path: impl AsRef<std::path::Path>) -> io::Result<()> {
 		if !path.as_ref().is_dir() {
 			return Err(io::Error::from(io::ErrorKind::NotADirectory));
 		}
