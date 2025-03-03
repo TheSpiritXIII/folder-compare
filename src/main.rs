@@ -43,6 +43,10 @@ struct Update {
 
 	/// Path to store the index.
 	index_path: PathBuf,
+
+	/// Whether to calculate the SHA-512 of the source files.
+	#[clap(long)]
+	sha_512: bool,
 }
 
 #[derive(Args, Debug)]
@@ -76,7 +80,7 @@ fn main() -> Result<()> {
 }
 
 fn update(command: &Update) -> Result<()> {
-	let index = if command.index_path.exists() {
+	let mut index = if command.index_path.exists() {
 		let mut index = index2::Index::open(&command.index_path).with_context(|| {
 			let path = command.index_path.to_string_lossy();
 			format!("Unable to open index: {path}")
@@ -86,6 +90,9 @@ fn update(command: &Update) -> Result<()> {
 	} else {
 		index2::Index::from_path(&command.src)?
 	};
+	if command.sha_512 {
+		index.calculate_all()?;
+	}
 	index.save(&command.index_path)?;
 	Ok(())
 }

@@ -35,8 +35,7 @@ impl Index {
 			index.add_dir(path)?;
 			return Ok(index);
 		} else if path.as_ref().is_file() {
-			let mut buf = Vec::new();
-			index.add_file(path, &mut buf)?;
+			index.add_file(path);
 			return Ok(index);
 		}
 		// TODO: io::Result doesn't make sense for this.
@@ -49,8 +48,8 @@ impl Index {
 			self.add_dir(path)
 		} else if path.as_ref().is_file() {
 			self.remove_file(path.as_ref());
-			let mut buf = Vec::new();
-			self.add_file(path, &mut buf)
+			self.add_file(path);
+			Ok(())
 		} else {
 			// TODO: io::Result doesn't make sense for this.
 			Err(io::Error::from(io::ErrorKind::Unsupported))
@@ -61,7 +60,6 @@ impl Index {
 		let mut queue = VecDeque::new();
 		queue.push_back(path.as_ref().to_path_buf());
 
-		let mut buf = Vec::new();
 		while let Some(current_path) = queue.pop_front() {
 			for entry in fs::read_dir(current_path)? {
 				let entry = entry?;
@@ -69,7 +67,7 @@ impl Index {
 				if path.is_dir() {
 					queue.push_back(path);
 				} else {
-					self.add_file(path, &mut buf)?;
+					self.add_file(path);
 				}
 			}
 		}
@@ -78,20 +76,19 @@ impl Index {
 		Ok(())
 	}
 
-	fn add_file(&mut self, path: impl AsRef<std::path::Path>, buf: &mut Vec<u8>) -> io::Result<()> {
-		let checksum = Self::calculate_sha512_checksum(path.as_ref(), buf)?;
+	fn add_file(&mut self, path: impl AsRef<std::path::Path>) {
 		self.entries.push(Metadata {
 			filepath: path.as_ref().to_string_lossy().into_owned(),
 			checksum: Checksum {
-				sha512: checksum,
+				sha512: String::new(),
 			},
 		});
-		Ok(())
 	}
 
 	// Removes the directory in the given path.
 	fn remove_dir(&mut self, path: impl AsRef<std::path::Path>) {
 		let path_str = path.as_ref().to_string_lossy().into_owned();
+		// TODO: This logic is wrong.
 		self.entries.retain(|entry| !entry.filepath.starts_with(&path_str));
 	}
 
@@ -102,10 +99,18 @@ impl Index {
 		self.entries.retain(|entry| entry.filepath != path_str);
 	}
 
-	fn calculate_sha512_checksum(path: impl AsRef<Path>, mut buf: &mut Vec<u8>) -> io::Result<String> {
+	pub fn calculate_all(&mut self) -> io::Result<()> {
+		let mut buf = Vec::new();
+		for metadata in &self.entries {
+			Self::calculate_sha512_checksum(&metadata.filepath, &mut buf)?;
+		}
+		Ok(())
+	}
+
+	fn calculate_sha512_checksum(path: impl AsRef<Path>, buf: &mut Vec<u8>) -> io::Result<String> {
 		let mut file = fs::File::open(path)?;
 		let mut hasher = Sha512::new();
-		file.read_to_end(&mut buf)?;
+		file.read_to_end(buf)?;
 		hasher.update(&buf);
 		Ok(format!("{:x}", hasher.finalize()))
 	}
