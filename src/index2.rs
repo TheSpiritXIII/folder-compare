@@ -32,7 +32,7 @@ impl Index {
 			entries: Vec::new(),
 		};
 		if path.as_ref().is_dir() {
-			index.add_dir(path)?;
+			index.add_dir(path.as_ref())?;
 			return Ok(index);
 		} else if path.as_ref().is_file() {
 			index.add_file(path);

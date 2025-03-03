@@ -85,10 +85,10 @@ fn update(command: &Update) -> Result<()> {
 			let path = command.index_path.to_string_lossy();
 			format!("Unable to open index: {path}")
 		})?;
-		index.add(&command.src)?;
+		index.add(std::path::absolute(&command.src)?)?;
 		index
 	} else {
-		index2::Index::from_path(&command.src)?
+		index2::Index::from_path(std::path::absolute(&command.src)?)?
 	};
 	if command.sha_512 {
 		index.calculate_all()?;
