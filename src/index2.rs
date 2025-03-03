@@ -3,6 +3,7 @@ use std::fs;
 use std::io::Read;
 use std::io::{self};
 use std::path::Path;
+use std::time::SystemTime;
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -12,6 +13,9 @@ use sha2::Sha512;
 #[derive(Serialize, Deserialize)]
 pub struct Metadata {
 	filepath: String,
+	size: u64,
+	modified_time: std::time::SystemTime,
+	created_time: std::time::SystemTime,
 	checksum: Checksum,
 }
 
@@ -22,20 +26,20 @@ pub struct Checksum {
 
 #[derive(Serialize, Deserialize)]
 pub struct Index {
-	entries: Vec<Metadata>,
+	files: Vec<Metadata>,
 }
 
 impl Index {
 	// Recursively finds all files in the given directory and adds them to the index.
 	pub fn from_path(path: impl AsRef<std::path::Path>) -> io::Result<Self> {
 		let mut index = Self {
-			entries: Vec::new(),
+			files: Vec::new(),
 		};
 		if path.as_ref().is_dir() {
 			index.add_dir(path.as_ref())?;
 			return Ok(index);
 		} else if path.as_ref().is_file() {
-			index.add_file(path);
+			index.add_file(path)?;
 			return Ok(index);
 		}
 		// TODO: io::Result doesn't make sense for this.
@@ -48,7 +52,7 @@ impl Index {
 			self.add_dir(path)
 		} else if path.as_ref().is_file() {
 			self.remove_file(path.as_ref());
-			self.add_file(path);
+			self.add_file(path)?;
 			Ok(())
 		} else {
 			// TODO: io::Result doesn't make sense for this.
@@ -67,7 +71,7 @@ impl Index {
 				if path.is_dir() {
 					queue.push_back(path);
 				} else {
-					self.add_file(path);
+					self.add_file(path)?;
 				}
 			}
 		}
@@ -76,32 +80,37 @@ impl Index {
 		Ok(())
 	}
 
-	fn add_file(&mut self, path: impl AsRef<std::path::Path>) {
-		self.entries.push(Metadata {
+	fn add_file(&mut self, path: impl AsRef<std::path::Path>) -> io::Result<()> {
+		let metadata = fs::metadata(path.as_ref())?;
+		self.files.push(Metadata {
 			filepath: path.as_ref().to_string_lossy().into_owned(),
+			size: metadata.len(),
+			modified_time: metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH),
+			created_time: metadata.created().unwrap_or(SystemTime::UNIX_EPOCH),
 			checksum: Checksum {
 				sha512: String::new(),
 			},
 		});
+		Ok(())
 	}
 
 	// Removes the directory in the given path.
 	fn remove_dir(&mut self, path: impl AsRef<std::path::Path>) {
 		let path_str = path.as_ref().to_string_lossy().into_owned();
 		// TODO: This logic is wrong.
-		self.entries.retain(|entry| !entry.filepath.starts_with(&path_str));
+		self.files.retain(|entry| !entry.filepath.starts_with(&path_str));
 	}
 
 	// Removes the file in the given path.
 	fn remove_file(&mut self, path: impl AsRef<std::path::Path>) {
 		let path_str = path.as_ref().to_string_lossy().into_owned();
 		// TODO: Optimize this with binary search.
-		self.entries.retain(|entry| entry.filepath != path_str);
+		self.files.retain(|entry| entry.filepath != path_str);
 	}
 
 	pub fn calculate_all(&mut self) -> io::Result<()> {
 		let mut buf = Vec::new();
-		for metadata in &self.entries {
+		for metadata in &self.files {
 			Self::calculate_sha512_checksum(&metadata.filepath, &mut buf)?;
 		}
 		Ok(())
@@ -118,8 +127,8 @@ impl Index {
 	// TODO: Make this Windows-only.
 	// Normalizes the entries by replacing '\' with '/'.
 	fn normalize(&mut self) {
-		self.entries.sort_by(|a, b| a.filepath.cmp(&b.filepath));
-		for entry in &mut self.entries {
+		self.files.sort_by(|a, b| a.filepath.cmp(&b.filepath));
+		for entry in &mut self.files {
 			entry.filepath = entry.filepath.replace('\\', "/");
 		}
 	}
@@ -128,7 +137,7 @@ impl Index {
 	// Stores the index entries as RON on the filesystem.
 	pub fn save(&self, path: impl AsRef<Path>) -> io::Result<()> {
 		let json =
-			ron::ser::to_string_pretty(&self.entries, ron::ser::PrettyConfig::default()).unwrap();
+			ron::ser::to_string_pretty(&self.files, ron::ser::PrettyConfig::default()).unwrap();
 		fs::write(path, json)?;
 		Ok(())
 	}
@@ -139,7 +148,7 @@ impl Index {
 		let json = fs::read_to_string(path)?;
 		let entries: Vec<Metadata> = ron::from_str(&json).unwrap();
 		Ok(Self {
-			entries,
+			files: entries,
 		})
 	}
 }
