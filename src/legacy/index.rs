@@ -93,10 +93,6 @@ impl Index {
 		self.entries.len() + 1
 	}
 
-	pub fn file_count(&self) -> usize {
-		self.entries.iter().filter(|(_, entry)| entry.is_file()).count()
-	}
-
 	pub fn diff<T: ProgressCounter>(&self, other: &Index, progress: &T) -> Vec<Diff> {
 		// Size of buffer to compare files, optimized for an 8 KiB average file-size.
 		// Dinneen, Jesse & Nguyen, Ba. (2021). How Big Are Peoples' Computer Files? File Size

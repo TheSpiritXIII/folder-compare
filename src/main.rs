@@ -1,7 +1,7 @@
 #![warn(clippy::pedantic)]
 
-mod index;
 mod index2;
+mod legacy;
 mod progress;
 
 use std::env;
@@ -185,11 +185,11 @@ impl Task {
 }
 
 fn diff(src: &PathBuf, dst: &PathBuf) -> Result<()> {
-	let mut index_src = index::Index::with(src).with_context(|| {
+	let mut index_src = legacy::index::Index::with(src).with_context(|| {
 		let path = src.to_string_lossy();
 		format!("Unable to index: {path}")
 	})?;
-	let mut index_dst = index::Index::with(dst).with_context(|| {
+	let mut index_dst = legacy::index::Index::with(dst).with_context(|| {
 		let path = dst.to_string_lossy();
 		format!("Unable to index: {path}")
 	})?;
@@ -248,13 +248,13 @@ fn diff(src: &PathBuf, dst: &PathBuf) -> Result<()> {
 
 	for diff in &diff_list {
 		match diff {
-			index::Diff::Added(name) => {
+			legacy::index::Diff::Added(name) => {
 				println!("+ {name}");
 			}
-			index::Diff::Removed(name) => {
+			legacy::index::Diff::Removed(name) => {
 				println!("- {name}");
 			}
-			index::Diff::Changed(name) => {
+			legacy::index::Diff::Changed(name) => {
 				println!("Δ {name}");
 			}
 		}
