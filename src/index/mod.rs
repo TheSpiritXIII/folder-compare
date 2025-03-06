@@ -1,15 +1,15 @@
+mod checksum;
+
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::fs::{self};
-use std::io::Read;
 use std::io::{self};
 use std::path::Path;
 use std::time::SystemTime;
 
+use checksum::Checksum;
 use serde::Deserialize;
 use serde::Serialize;
-use sha2::Digest;
-use sha2::Sha512;
 
 use crate::matches::MatchKind;
 use crate::progress::ProgressCounter;
@@ -37,17 +37,6 @@ impl Metadata {
 	}
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
-pub struct Checksum {
-	sha512: String,
-}
-
-impl Checksum {
-	fn is_empty(&self) -> bool {
-		self.sha512.is_empty()
-	}
-}
-
 #[derive(Serialize, Deserialize)]
 pub struct FileMetadata {
 	meta: Metadata,
@@ -63,14 +52,6 @@ pub struct Index {
 
 fn normalize_path(path: &mut String) {
 	*path = path.replace('\\', "/");
-}
-
-fn calculate_sha512_checksum(path: impl AsRef<Path>, buf: &mut Vec<u8>) -> io::Result<String> {
-	let mut file = fs::File::open(path)?;
-	let mut hasher = Sha512::new();
-	file.read_to_end(buf)?;
-	hasher.update(&buf);
-	Ok(format!("{:x}", hasher.finalize()))
 }
 
 impl Index {
@@ -158,9 +139,7 @@ impl Index {
 				created_time: metadata.created().unwrap_or(SystemTime::UNIX_EPOCH),
 			},
 			size: metadata.len(),
-			checksum: Checksum {
-				sha512: String::new(),
-			},
+			checksum: Checksum::new(),
 		});
 		Ok(())
 	}
@@ -185,7 +164,7 @@ impl Index {
 	pub fn calculate_all(&mut self) -> io::Result<()> {
 		let mut buf = Vec::with_capacity(BUF_SIZE);
 		for metadata in &mut self.files {
-			metadata.checksum.sha512 = calculate_sha512_checksum(&metadata.meta.path, &mut buf)?;
+			metadata.checksum.calculate(&metadata.meta.path, &mut buf)?;
 		}
 		Ok(())
 	}
