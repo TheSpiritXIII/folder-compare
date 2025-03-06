@@ -231,7 +231,7 @@ impl Index {
 		progress: &T,
 	) -> Vec<(MatchKind, Vec<String>)> {
 		let mut size_map = HashMap::<(String, u64), Vec<String>>::new();
-		let mut metadata_map = HashMap::<Metadata, Vec<String>>::new();
+		let mut metadata_map = HashMap::<(Metadata, u64), Vec<String>>::new();
 		let mut checksum_map = HashMap::<Checksum, Vec<String>>::new();
 
 		let mut count = 0;
@@ -240,7 +240,7 @@ impl Index {
 				.entry((file.meta.normalize().path, file.size))
 				.or_default()
 				.push(file.meta.path.clone());
-			metadata_map.entry(file.meta.normalize()).or_default().push(file.meta.path.clone());
+			metadata_map.entry((file.meta.normalize(), file.size)).or_default().push(file.meta.path.clone());
 			if !file.checksum.is_empty() {
 				checksum_map.entry(file.checksum.clone()).or_default().push(file.meta.path.clone());
 			}
