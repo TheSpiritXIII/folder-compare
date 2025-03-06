@@ -1,6 +1,6 @@
 #![warn(clippy::pedantic)]
 
-mod index2;
+mod index;
 mod legacy;
 mod progress;
 
@@ -94,14 +94,14 @@ fn update(command: &Update) -> Result<()> {
 	});
 
 	let mut index = if command.index_path.exists() {
-		let mut index = index2::Index::open(&command.index_path).with_context(|| {
+		let mut index = index::Index::open(&command.index_path).with_context(|| {
 			let path = command.index_path.to_string_lossy();
 			format!("Unable to open index: {path}")
 		})?;
 		index.add(std::path::absolute(&command.src)?, &task.counter)?;
 		index
 	} else {
-		index2::Index::from_path(std::path::absolute(&command.src)?, &task.counter)?
+		index::Index::from_path(std::path::absolute(&command.src)?, &task.counter)?
 	};
 	task.set_done();
 	print_thread.join().unwrap();
@@ -126,7 +126,7 @@ fn stats(path: &PathBuf) -> Result<()> {
 		);
 	});
 
-	let index = index2::Index::from_path(path, &task.counter).with_context(|| {
+	let index = index::Index::from_path(path, &task.counter).with_context(|| {
 		let path = path.to_string_lossy();
 		format!("Unable to index: {path}")
 	})?;
