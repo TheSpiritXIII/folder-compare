@@ -301,15 +301,15 @@ fn duplicates(index_file: &PathBuf) -> Result<()> {
 		return Ok(());
 	}
 
-	for (match_type, file_list) in duplicates {
-		match match_type {
-			matches::Matches::Size => {
+	for (match_kind, file_list) in duplicates {
+		match match_kind {
+			matches::MatchKind::Size => {
 				println!("Potential duplicates: {file_list:?}");
 			}
-			matches::Matches::Metadata => {
+			matches::MatchKind::Metadata => {
 				println!("Metadata duplicates: {file_list:?}");
 			}
-			matches::Matches::Checksums => {
+			matches::MatchKind::Checksums => {
 				println!("Checksum duplicates: {file_list:?}");
 			}
 		}

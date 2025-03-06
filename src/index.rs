@@ -11,7 +11,7 @@ use serde::Serialize;
 use sha2::Digest;
 use sha2::Sha512;
 
-use crate::matches::Matches;
+use crate::matches::MatchKind;
 use crate::progress::ProgressCounter;
 
 #[derive(Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
@@ -229,7 +229,7 @@ impl Index {
 	pub fn calculate_duplicates<T: ProgressCounter>(
 		&self,
 		progress: &T,
-	) -> Vec<(Matches, Vec<String>)> {
+	) -> Vec<(MatchKind, Vec<String>)> {
 		let mut size_map = HashMap::<(String, u64), Vec<String>>::new();
 		let mut metadata_map = HashMap::<Metadata, Vec<String>>::new();
 		let mut checksum_map = HashMap::<Checksum, Vec<String>>::new();
@@ -249,20 +249,20 @@ impl Index {
 			progress.update(count);
 		}
 
-		let mut matches = Vec::<(Matches, Vec<String>)>::new();
+		let mut matches = Vec::<(MatchKind, Vec<String>)>::new();
 		for (_, path_list) in size_map {
 			if path_list.len() > 1 {
-				matches.push((Matches::Size, path_list));
+				matches.push((MatchKind::Size, path_list));
 			}
 		}
 		for (_, path_list) in metadata_map {
 			if path_list.len() > 1 {
-				matches.push((Matches::Metadata, path_list));
+				matches.push((MatchKind::Metadata, path_list));
 			}
 		}
 		for (_, path_list) in checksum_map {
 			if path_list.len() > 1 {
-				matches.push((Matches::Checksums, path_list));
+				matches.push((MatchKind::Checksums, path_list));
 			}
 		}
 		matches
