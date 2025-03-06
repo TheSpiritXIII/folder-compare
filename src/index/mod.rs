@@ -1,13 +1,14 @@
 mod checksum;
+mod metadata;
 
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::fs::{self};
 use std::io::{self};
 use std::path::Path;
-use std::time::SystemTime;
 
 use checksum::Checksum;
+use metadata::Metadata;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -18,24 +19,6 @@ use crate::progress::ProgressCounter;
 // Dinneen, Jesse & Nguyen, Ba. (2021). How Big Are Peoples' Computer Files? File Size Distributions
 // Among User-managed Collections.
 const BUF_SIZE: usize = 1024 * 8;
-
-#[derive(Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
-pub struct Metadata {
-	path: String,
-	modified_time: std::time::SystemTime,
-	created_time: std::time::SystemTime,
-}
-
-impl Metadata {
-	fn normalize(&self) -> Self {
-		let path = Path::new(&self.path);
-		Self {
-			path: path.file_name().unwrap().to_string_lossy().into_owned(),
-			modified_time: self.modified_time,
-			created_time: self.created_time,
-		}
-	}
-}
 
 #[derive(Serialize, Deserialize)]
 pub struct FileMetadata {
@@ -104,12 +87,8 @@ impl Index {
 
 		let mut count = 0;
 		while let Some(current_path) = queue.pop_front() {
-			let metadata = fs::metadata(&path)?;
-			self.dirs.push(Metadata {
-				path: current_path.to_string_lossy().into_owned(),
-				modified_time: metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH),
-				created_time: metadata.created().unwrap_or(SystemTime::UNIX_EPOCH),
-			});
+			let metadata = Metadata::from_path(&path)?;
+			self.dirs.push(metadata);
 
 			count += 1;
 			progress.update(count);
@@ -133,11 +112,7 @@ impl Index {
 	fn add_file(&mut self, path: impl AsRef<std::path::Path>) -> io::Result<()> {
 		let metadata = fs::metadata(path.as_ref())?;
 		self.files.push(FileMetadata {
-			meta: Metadata {
-				path: path.as_ref().to_string_lossy().into_owned(),
-				modified_time: metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH),
-				created_time: metadata.created().unwrap_or(SystemTime::UNIX_EPOCH),
-			},
+			meta: Metadata::from_path(path.as_ref())?,
 			size: metadata.len(),
 			checksum: Checksum::new(),
 		});
@@ -149,8 +124,8 @@ impl Index {
 		let mut path_str = path.as_ref().to_string_lossy().into_owned();
 		normalize_path(&mut path_str);
 		// TODO: This logic is wrong.
-		self.files.retain(|entry| !entry.meta.path.starts_with(&path_str));
-		self.dirs.retain(|entry| entry.path != path_str);
+		self.files.retain(|entry| !entry.meta.path().starts_with(&path_str));
+		self.dirs.retain(|entry| entry.path() != path_str);
 	}
 
 	// Removes the file in the given path.
@@ -158,13 +133,13 @@ impl Index {
 		let mut path_str = path.as_ref().to_string_lossy().into_owned();
 		normalize_path(&mut path_str);
 		// TODO: Optimize this with binary search.
-		self.files.retain(|entry| entry.meta.path != path_str);
+		self.files.retain(|entry| entry.meta.path() != path_str);
 	}
 
 	pub fn calculate_all(&mut self) -> io::Result<()> {
 		let mut buf = Vec::with_capacity(BUF_SIZE);
 		for metadata in &mut self.files {
-			metadata.checksum.calculate(&metadata.meta.path, &mut buf)?;
+			metadata.checksum.calculate(metadata.meta.path(), &mut buf)?;
 		}
 		Ok(())
 	}
@@ -172,11 +147,11 @@ impl Index {
 	// TODO: Make this Windows-only.
 	// Normalizes the entries by replacing '\' with '/'.
 	fn normalize(&mut self) {
-		self.files.sort_by(|a, b| a.meta.path.cmp(&b.meta.path));
+		self.files.sort_by(|a, b| a.meta.path().cmp(b.meta.path()));
 		for entry in &mut self.files {
 			normalize_path(&mut entry.meta.path);
 		}
-		self.dirs.sort_by(|a, b| a.path.cmp(&b.path));
+		self.dirs.sort_by(|a, b| a.path().cmp(b.path()));
 		for entry in &mut self.dirs {
 			normalize_path(&mut entry.path);
 		}
@@ -220,19 +195,20 @@ impl Index {
 
 		let mut count = 0;
 		for file in &self.files {
+			let meta_normalized = file.meta.normalize();
 			size_map
-				.entry((file.meta.normalize().path, file.size))
+				.entry((meta_normalized.path().to_string(), file.size))
 				.or_default()
-				.push(file.meta.path.clone());
+				.push(file.meta.path().to_string());
 			metadata_map
-				.entry((file.meta.normalize(), file.size))
+				.entry((meta_normalized, file.size))
 				.or_default()
-				.push(file.meta.path.clone());
+				.push(file.meta.path().to_string());
 			if !file.checksum.is_empty() {
 				checksum_map
 					.entry((file.checksum.clone(), file.size))
 					.or_default()
-					.push(file.meta.path.clone());
+					.push(file.meta.path().to_string());
 			}
 
 			count += 1;
