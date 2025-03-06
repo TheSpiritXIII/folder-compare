@@ -14,6 +14,11 @@ use sha2::Sha512;
 use crate::matches::MatchKind;
 use crate::progress::ProgressCounter;
 
+// Size of buffer to compare files, optimized for an 8 KiB average file-size.
+// Dinneen, Jesse & Nguyen, Ba. (2021). How Big Are Peoples' Computer Files? File Size Distributions
+// Among User-managed Collections.
+const BUF_SIZE: usize = 1024 * 8;
+
 #[derive(Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
 pub struct Metadata {
 	path: String,
@@ -58,6 +63,14 @@ pub struct Index {
 
 fn normalize_path(path: &mut String) {
 	*path = path.replace('\\', "/");
+}
+
+fn calculate_sha512_checksum(path: impl AsRef<Path>, buf: &mut Vec<u8>) -> io::Result<String> {
+	let mut file = fs::File::open(path)?;
+	let mut hasher = Sha512::new();
+	file.read_to_end(buf)?;
+	hasher.update(&buf);
+	Ok(format!("{:x}", hasher.finalize()))
 }
 
 impl Index {
@@ -171,18 +184,11 @@ impl Index {
 
 	pub fn calculate_all(&mut self) -> io::Result<()> {
 		let mut buf = Vec::new();
-		for metadata in &self.files {
-			Self::calculate_sha512_checksum(&metadata.meta.path, &mut buf)?;
+		buf.reserve(BUF_SIZE);
+		for metadata in &mut self.files {
+			metadata.checksum.sha512 = calculate_sha512_checksum(&metadata.meta.path, &mut buf)?;
 		}
 		Ok(())
-	}
-
-	fn calculate_sha512_checksum(path: impl AsRef<Path>, buf: &mut Vec<u8>) -> io::Result<String> {
-		let mut file = fs::File::open(path)?;
-		let mut hasher = Sha512::new();
-		file.read_to_end(buf)?;
-		hasher.update(&buf);
-		Ok(format!("{:x}", hasher.finalize()))
 	}
 
 	// TODO: Make this Windows-only.
@@ -240,7 +246,10 @@ impl Index {
 				.entry((file.meta.normalize().path, file.size))
 				.or_default()
 				.push(file.meta.path.clone());
-			metadata_map.entry((file.meta.normalize(), file.size)).or_default().push(file.meta.path.clone());
+			metadata_map
+				.entry((file.meta.normalize(), file.size))
+				.or_default()
+				.push(file.meta.path.clone());
 			if !file.checksum.is_empty() {
 				checksum_map.entry(file.checksum.clone()).or_default().push(file.meta.path.clone());
 			}
