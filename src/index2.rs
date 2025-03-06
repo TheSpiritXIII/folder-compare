@@ -10,6 +10,8 @@ use serde::Serialize;
 use sha2::Digest;
 use sha2::Sha512;
 
+use crate::progress::ProgressCounter;
+
 #[derive(Serialize, Deserialize)]
 pub struct Metadata {
 	filepath: String,
@@ -31,12 +33,15 @@ pub struct Index {
 
 impl Index {
 	// Recursively finds all files in the given directory and adds them to the index.
-	pub fn from_path(path: impl AsRef<std::path::Path>) -> io::Result<Self> {
+	pub fn from_path<T: ProgressCounter>(
+		path: impl AsRef<std::path::Path>,
+		progress: &T,
+	) -> io::Result<Self> {
 		let mut index = Self {
 			files: Vec::new(),
 		};
 		if path.as_ref().is_dir() {
-			index.add_dir(path.as_ref())?;
+			index.add_dir(path.as_ref(), progress)?;
 			return Ok(index);
 		} else if path.as_ref().is_file() {
 			index.add_file(path)?;
@@ -46,13 +51,18 @@ impl Index {
 		Err(io::Error::from(io::ErrorKind::Unsupported))
 	}
 
-	pub fn add(&mut self, path: impl AsRef<std::path::Path>) -> io::Result<()> {
+	pub fn add<T: ProgressCounter>(
+		&mut self,
+		path: impl AsRef<std::path::Path>,
+		progress: &T,
+	) -> io::Result<()> {
 		if path.as_ref().is_dir() {
 			self.remove_dir(path.as_ref());
-			self.add_dir(path)
+			self.add_dir(path, progress)
 		} else if path.as_ref().is_file() {
 			self.remove_file(path.as_ref());
 			self.add_file(path)?;
+			progress.update(1);
 			Ok(())
 		} else {
 			// TODO: io::Result doesn't make sense for this.
@@ -60,11 +70,18 @@ impl Index {
 		}
 	}
 
-	fn add_dir(&mut self, path: impl AsRef<std::path::Path>) -> io::Result<()> {
+	fn add_dir<T: ProgressCounter>(
+		&mut self,
+		path: impl AsRef<std::path::Path>,
+		progress: &T,
+	) -> io::Result<()> {
 		let mut queue = VecDeque::new();
 		queue.push_back(path.as_ref().to_path_buf());
 
+		let mut count = 0;
 		while let Some(current_path) = queue.pop_front() {
+			count += 1;
+			progress.update(count);
 			for entry in fs::read_dir(current_path)? {
 				let entry = entry?;
 				let path = entry.path();
@@ -72,6 +89,8 @@ impl Index {
 					queue.push_back(path);
 				} else {
 					self.add_file(path)?;
+					count += 1;
+					progress.update(count);
 				}
 			}
 		}
