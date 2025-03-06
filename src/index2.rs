@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use std::fs;
+use std::fs::{self};
 use std::io::Read;
 use std::io::{self};
 use std::path::Path;
@@ -14,11 +14,9 @@ use crate::progress::ProgressCounter;
 
 #[derive(Serialize, Deserialize)]
 pub struct Metadata {
-	filepath: String,
-	size: u64,
+	path: String,
 	modified_time: std::time::SystemTime,
 	created_time: std::time::SystemTime,
-	checksum: Checksum,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -27,9 +25,20 @@ pub struct Checksum {
 }
 
 #[derive(Serialize, Deserialize)]
+pub struct FileMetadata {
+	meta: Metadata,
+	size: u64,
+	checksum: Checksum,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct Index {
-	files: Vec<Metadata>,
+	files: Vec<FileMetadata>,
 	dirs: Vec<Metadata>,
+}
+
+fn normalize_path(path: &mut String) {
+	*path = path.replace('\\', "/");
 }
 
 impl Index {
@@ -84,13 +93,9 @@ impl Index {
 		while let Some(current_path) = queue.pop_front() {
 			let metadata = fs::metadata(&path)?;
 			self.dirs.push(Metadata {
-				filepath: current_path.to_string_lossy().into_owned(),
-				size: metadata.len(),
+				path: current_path.to_string_lossy().into_owned(),
 				modified_time: metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH),
 				created_time: metadata.created().unwrap_or(SystemTime::UNIX_EPOCH),
-				checksum: Checksum {
-					sha512: String::new(),
-				},
 			});
 
 			count += 1;
@@ -114,11 +119,13 @@ impl Index {
 
 	fn add_file(&mut self, path: impl AsRef<std::path::Path>) -> io::Result<()> {
 		let metadata = fs::metadata(path.as_ref())?;
-		self.files.push(Metadata {
-			filepath: path.as_ref().to_string_lossy().into_owned(),
+		self.files.push(FileMetadata {
+			meta: Metadata {
+				path: path.as_ref().to_string_lossy().into_owned(),
+				modified_time: metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH),
+				created_time: metadata.created().unwrap_or(SystemTime::UNIX_EPOCH),
+			},
 			size: metadata.len(),
-			modified_time: metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH),
-			created_time: metadata.created().unwrap_or(SystemTime::UNIX_EPOCH),
 			checksum: Checksum {
 				sha512: String::new(),
 			},
@@ -128,22 +135,25 @@ impl Index {
 
 	// Removes the directory in the given path.
 	fn remove_dir(&mut self, path: impl AsRef<std::path::Path>) {
-		let path_str = path.as_ref().to_string_lossy().into_owned();
+		let mut path_str = path.as_ref().to_string_lossy().into_owned();
+		normalize_path(&mut path_str);
 		// TODO: This logic is wrong.
-		self.files.retain(|entry| !entry.filepath.starts_with(&path_str));
+		self.files.retain(|entry| !entry.meta.path.starts_with(&path_str));
+		self.dirs.retain(|entry| entry.path != path_str);
 	}
 
 	// Removes the file in the given path.
 	fn remove_file(&mut self, path: impl AsRef<std::path::Path>) {
-		let path_str = path.as_ref().to_string_lossy().into_owned();
+		let mut path_str = path.as_ref().to_string_lossy().into_owned();
+		normalize_path(&mut path_str);
 		// TODO: Optimize this with binary search.
-		self.files.retain(|entry| entry.filepath != path_str);
+		self.files.retain(|entry| entry.meta.path != path_str);
 	}
 
 	pub fn calculate_all(&mut self) -> io::Result<()> {
 		let mut buf = Vec::new();
 		for metadata in &self.files {
-			Self::calculate_sha512_checksum(&metadata.filepath, &mut buf)?;
+			Self::calculate_sha512_checksum(&metadata.meta.path, &mut buf)?;
 		}
 		Ok(())
 	}
@@ -159,17 +169,20 @@ impl Index {
 	// TODO: Make this Windows-only.
 	// Normalizes the entries by replacing '\' with '/'.
 	fn normalize(&mut self) {
-		self.files.sort_by(|a, b| a.filepath.cmp(&b.filepath));
+		self.files.sort_by(|a, b| a.meta.path.cmp(&b.meta.path));
 		for entry in &mut self.files {
-			entry.filepath = entry.filepath.replace('\\', "/");
+			normalize_path(&mut entry.meta.path);
+		}
+		self.dirs.sort_by(|a, b| a.path.cmp(&b.path));
+		for entry in &mut self.dirs {
+			normalize_path(&mut entry.path);
 		}
 	}
 
 	// TODO: Validate file extension?
 	// Stores the index entries as RON on the filesystem.
 	pub fn save(&self, path: impl AsRef<Path>) -> io::Result<()> {
-		let json =
-			ron::ser::to_string_pretty(&self.files, ron::ser::PrettyConfig::default()).unwrap();
+		let json = ron::ser::to_string_pretty(&self, ron::ser::PrettyConfig::default()).unwrap();
 		fs::write(path, json)?;
 		Ok(())
 	}
@@ -178,11 +191,8 @@ impl Index {
 	// Opens an Index from a RON file.
 	pub fn open(path: impl AsRef<Path>) -> io::Result<Self> {
 		let json = fs::read_to_string(path)?;
-		let entries: Vec<Metadata> = ron::from_str(&json).unwrap();
-		Ok(Self {
-			files: entries,
-			dirs: Vec::new(),
-		})
+		let index: Self = ron::from_str(&json).unwrap();
+		Ok(index)
 	}
 
 	pub fn entry_count(&self) -> usize {
