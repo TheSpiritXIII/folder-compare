@@ -33,10 +33,6 @@ pub struct Index {
 	dirs: Vec<Metadata>,
 }
 
-fn normalize_path(path: &mut String) {
-	*path = path.replace('\\', "/");
-}
-
 impl Index {
 	// Recursively finds all files in the given directory and adds them to the index.
 	pub fn from_path<T: ProgressCounter>(
@@ -121,8 +117,7 @@ impl Index {
 
 	// Removes the directory in the given path.
 	fn remove_dir(&mut self, path: impl AsRef<std::path::Path>) {
-		let mut path_str = path.as_ref().to_string_lossy().into_owned();
-		normalize_path(&mut path_str);
+		let path_str = metadata::normalized_path(path.as_ref());
 		// TODO: This logic is wrong.
 		self.files.retain(|entry| !entry.meta.path().starts_with(&path_str));
 		self.dirs.retain(|entry| entry.path() != path_str);
@@ -130,8 +125,7 @@ impl Index {
 
 	// Removes the file in the given path.
 	fn remove_file(&mut self, path: impl AsRef<std::path::Path>) {
-		let mut path_str = path.as_ref().to_string_lossy().into_owned();
-		normalize_path(&mut path_str);
+		let path_str = metadata::normalized_path(path.as_ref());
 		// TODO: Optimize this with binary search.
 		self.files.retain(|entry| entry.meta.path() != path_str);
 	}
@@ -144,17 +138,9 @@ impl Index {
 		Ok(())
 	}
 
-	// TODO: Make this Windows-only.
-	// Normalizes the entries by replacing '\' with '/'.
 	fn normalize(&mut self) {
 		self.files.sort_by(|a, b| a.meta.path().cmp(b.meta.path()));
-		for entry in &mut self.files {
-			normalize_path(&mut entry.meta.path);
-		}
 		self.dirs.sort_by(|a, b| a.path().cmp(b.path()));
-		for entry in &mut self.dirs {
-			normalize_path(&mut entry.path);
-		}
 	}
 
 	// TODO: Validate file extension?
