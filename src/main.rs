@@ -2,6 +2,7 @@
 
 mod index;
 mod legacy;
+mod matches;
 mod progress;
 
 use std::env;
@@ -34,6 +35,8 @@ enum Command {
 	Stats(Stats),
 	/// Find differences in two folders.
 	Diff(Diff),
+	/// Finds duplicates in a folder.
+	Duplicates(Duplicates),
 }
 
 #[derive(Args, Debug)]
@@ -63,6 +66,12 @@ struct Diff {
 	dst: Option<PathBuf>,
 }
 
+#[derive(Args, Debug)]
+struct Duplicates {
+	#[clap(long)]
+	index_file: PathBuf,
+}
+
 fn main() -> Result<()> {
 	let cli = Cli::parse();
 	let path = env::current_dir().context("Unable to retrieve the current directory")?;
@@ -76,6 +85,7 @@ fn main() -> Result<()> {
 			let dst = command.dst.unwrap_or(path);
 			diff(&command.src, &dst)
 		}
+		Command::Duplicates(command) => duplicates(&command.index_file),
 	}
 }
 
@@ -256,6 +266,51 @@ fn diff(src: &PathBuf, dst: &PathBuf) -> Result<()> {
 			}
 			legacy::index::Diff::Changed(name) => {
 				println!("Δ {name}");
+			}
+		}
+	}
+	Ok(())
+}
+
+fn duplicates(index_file: &PathBuf) -> Result<()> {
+	let index = index::Index::open(index_file).with_context(|| {
+		let path = index_file.to_string_lossy();
+		format!("Unable to open index: {path}")
+	})?;
+
+	println!("Comparing files...");
+	let task = Arc::new(Task::new());
+	let task_thread = task.clone();
+
+	let print_thread = thread::spawn(move || {
+		interval(
+			|| task_thread.done(),
+			|| {
+				let found = task_thread.counter.value();
+				println!("Discovered {found} entries...");
+			},
+		);
+	});
+
+	let duplicates = index.calculate_duplicates(&task.counter);
+	task.set_done();
+	print_thread.join().unwrap();
+
+	if duplicates.is_empty() {
+		println!("No duplicates found");
+		return Ok(());
+	}
+
+	for (match_type, file_list) in duplicates {
+		match match_type {
+			matches::Matches::Size => {
+				println!("Potential duplicates: {file_list:?}");
+			}
+			matches::Matches::Metadata => {
+				println!("Metadata duplicates: {file_list:?}");
+			}
+			matches::Matches::Checksums => {
+				println!("Checksum duplicates: {file_list:?}");
 			}
 		}
 	}

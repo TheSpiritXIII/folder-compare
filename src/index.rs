@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::fs::{self};
 use std::io::Read;
@@ -10,18 +11,36 @@ use serde::Serialize;
 use sha2::Digest;
 use sha2::Sha512;
 
+use crate::matches::Matches;
 use crate::progress::ProgressCounter;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
 pub struct Metadata {
 	path: String,
 	modified_time: std::time::SystemTime,
 	created_time: std::time::SystemTime,
 }
 
-#[derive(Serialize, Deserialize)]
+impl Metadata {
+	fn normalize(&self) -> Self {
+		let path = Path::new(&self.path);
+		Self {
+			path: path.file_name().unwrap().to_string_lossy().into_owned(),
+			modified_time: self.modified_time,
+			created_time: self.created_time,
+		}
+	}
+}
+
+#[derive(Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
 pub struct Checksum {
 	sha512: String,
+}
+
+impl Checksum {
+	fn is_empty(&self) -> bool {
+		self.sha512.is_empty()
+	}
 }
 
 #[derive(Serialize, Deserialize)]
@@ -205,5 +224,47 @@ impl Index {
 
 	pub fn dirs_count(&self) -> usize {
 		self.dirs.len()
+	}
+
+	pub fn calculate_duplicates<T: ProgressCounter>(
+		&self,
+		progress: &T,
+	) -> Vec<(Matches, Vec<String>)> {
+		let mut size_map = HashMap::<(String, u64), Vec<String>>::new();
+		let mut metadata_map = HashMap::<Metadata, Vec<String>>::new();
+		let mut checksum_map = HashMap::<Checksum, Vec<String>>::new();
+
+		let mut count = 0;
+		for file in &self.files {
+			size_map
+				.entry((file.meta.normalize().path, file.size))
+				.or_default()
+				.push(file.meta.path.clone());
+			metadata_map.entry(file.meta.normalize()).or_default().push(file.meta.path.clone());
+			if !file.checksum.is_empty() {
+				checksum_map.entry(file.checksum.clone()).or_default().push(file.meta.path.clone());
+			}
+
+			count += 1;
+			progress.update(count);
+		}
+
+		let mut matches = Vec::<(Matches, Vec<String>)>::new();
+		for (_, path_list) in size_map {
+			if path_list.len() > 1 {
+				matches.push((Matches::Size, path_list));
+			}
+		}
+		for (_, path_list) in metadata_map {
+			if path_list.len() > 1 {
+				matches.push((Matches::Metadata, path_list));
+			}
+		}
+		for (_, path_list) in checksum_map {
+			if path_list.len() > 1 {
+				matches.push((Matches::Checksums, path_list));
+			}
+		}
+		matches
 	}
 }
