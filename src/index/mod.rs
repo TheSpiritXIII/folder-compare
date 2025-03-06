@@ -183,8 +183,7 @@ impl Index {
 	}
 
 	pub fn calculate_all(&mut self) -> io::Result<()> {
-		let mut buf = Vec::new();
-		buf.reserve(BUF_SIZE);
+		let mut buf = Vec::with_capacity(BUF_SIZE);
 		for metadata in &mut self.files {
 			metadata.checksum.sha512 = calculate_sha512_checksum(&metadata.meta.path, &mut buf)?;
 		}
@@ -251,7 +250,10 @@ impl Index {
 				.or_default()
 				.push(file.meta.path.clone());
 			if !file.checksum.is_empty() {
-				checksum_map.entry((file.checksum.clone(), file.size)).or_default().push(file.meta.path.clone());
+				checksum_map
+					.entry((file.checksum.clone(), file.size))
+					.or_default()
+					.push(file.meta.path.clone());
 			}
 
 			count += 1;
