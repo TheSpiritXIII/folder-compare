@@ -113,12 +113,7 @@ fn update(command: &Update) -> Result<()> {
 }
 
 fn stats(path: &PathBuf) -> Result<()> {
-	let mut index = index::Index::with(path).with_context(|| {
-		let path = path.to_string_lossy();
-		format!("Unable to index: {path}")
-	})?;
 	let task = Arc::new(Task::new());
-
 	let task_thread = task.clone();
 
 	let print_thread = thread::spawn(move || {
@@ -130,7 +125,12 @@ fn stats(path: &PathBuf) -> Result<()> {
 			},
 		);
 	});
-	index.expand_all(&task.counter);
+
+	let index = index2::Index::from_path(path, &task.counter).with_context(|| {
+		let path = path.to_string_lossy();
+		format!("Unable to index: {path}")
+	})?;
+
 	task.set_done();
 	print_thread.join().unwrap();
 
@@ -138,7 +138,7 @@ fn stats(path: &PathBuf) -> Result<()> {
 	println!("Found {count} total entries!");
 	let file_count = index.file_count();
 	println!("{file_count} files.");
-	let dir_count = count - file_count;
+	let dir_count = index.dirs_count();
 	println!("{dir_count} directories.");
 	Ok(())
 }

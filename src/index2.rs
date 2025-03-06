@@ -29,6 +29,7 @@ pub struct Checksum {
 #[derive(Serialize, Deserialize)]
 pub struct Index {
 	files: Vec<Metadata>,
+	dirs: Vec<Metadata>,
 }
 
 impl Index {
@@ -39,6 +40,7 @@ impl Index {
 	) -> io::Result<Self> {
 		let mut index = Self {
 			files: Vec::new(),
+			dirs: Vec::new(),
 		};
 		if path.as_ref().is_dir() {
 			index.add_dir(path.as_ref(), progress)?;
@@ -80,6 +82,17 @@ impl Index {
 
 		let mut count = 0;
 		while let Some(current_path) = queue.pop_front() {
+			let metadata = fs::metadata(&path)?;
+			self.dirs.push(Metadata {
+				filepath: current_path.to_string_lossy().into_owned(),
+				size: metadata.len(),
+				modified_time: metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH),
+				created_time: metadata.created().unwrap_or(SystemTime::UNIX_EPOCH),
+				checksum: Checksum {
+					sha512: String::new(),
+				},
+			});
+
 			count += 1;
 			progress.update(count);
 			for entry in fs::read_dir(current_path)? {
@@ -168,6 +181,19 @@ impl Index {
 		let entries: Vec<Metadata> = ron::from_str(&json).unwrap();
 		Ok(Self {
 			files: entries,
+			dirs: Vec::new(),
 		})
+	}
+
+	pub fn entry_count(&self) -> usize {
+		self.files.len() + self.dirs.len()
+	}
+
+	pub fn file_count(&self) -> usize {
+		self.files.len()
+	}
+
+	pub fn dirs_count(&self) -> usize {
+		self.dirs.len()
 	}
 }
