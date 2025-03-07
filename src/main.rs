@@ -43,7 +43,8 @@ struct Index {
 	src: PathBuf,
 
 	/// Path to store the index.
-	index_path: PathBuf,
+	#[clap(long)]
+	index_file: PathBuf,
 
 	/// Whether to calculate the SHA-512 of the source files.
 	#[clap(long)]
@@ -53,7 +54,7 @@ struct Index {
 #[derive(Args, Debug)]
 struct Stats {
 	/// Path to operate on, or the current path if not provided.
-	name: Option<PathBuf>,
+	src: Option<PathBuf>,
 }
 
 #[derive(Args, Debug)]
@@ -75,10 +76,10 @@ fn main() -> Result<()> {
 	let path = env::current_dir().context("Unable to retrieve the current directory")?;
 	match cli.command {
 		Command::Index(command) => {
-			command::index(&command.src, &command.index_path, command.sha_512)
+			command::index(&command.src, &command.index_file, command.sha_512)
 		}
 		Command::Stats(command) => {
-			let path = command.name.unwrap_or(path);
+			let path = command.src.unwrap_or(path);
 			command::stats(&path)
 		}
 		Command::Diff(command) => {
