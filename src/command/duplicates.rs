@@ -1,11 +1,9 @@
 use std::path::PathBuf;
-use std::thread;
 
 use anyhow::Context;
 use anyhow::Result;
 
-use crate::command::task::condition_delay;
-use crate::command::task::Task;
+use crate::command::task::Delayer;
 use crate::index;
 use crate::util::terminal::clear_line;
 
@@ -14,23 +12,15 @@ pub fn duplicates(index_file: &PathBuf) -> Result<()> {
 		.with_context(|| format!("Unable to open index: {}", index_file.display()))?;
 
 	println!("Comparing files...");
-	let task = Task::new();
 	let total = index.file_count();
-	thread::scope(|s| -> Result<_> {
-		s.spawn(|| {
-			loop {
-				if condition_delay(|| task.done()) {
-					return;
-				}
-				let found = task.counter.value();
-				clear_line();
-				print!("Processed {found} of {total} entries...");
-			}
-		});
-
-		index.calculate_matches(&task.counter)?;
-		task.set_done();
-		Ok(())
+	let mut current = 0;
+	let mut delayer = Delayer::new();
+	index.calculate_matches(|x| {
+		if delayer.run() {
+			current += 1;
+			clear_line();
+			print!("Processed {current} of {total} entries...: {x}");
+		}
 	})?;
 
 	let duplicates = index.duplicates();

@@ -170,7 +170,7 @@ impl Index {
 		self.dirs.len()
 	}
 
-	pub fn calculate_matches<T: ProgressCounter>(&mut self, progress: &T) -> io::Result<()> {
+	pub fn calculate_matches(&mut self, mut notifier: impl FnMut(&str)) -> io::Result<()> {
 		let mut file_index_by_size = HashMap::<u64, Vec<usize>>::new();
 		for (file_index, file) in self.files.iter().enumerate() {
 			file_index_by_size.entry(file.size).or_default().push(file_index);
@@ -187,12 +187,12 @@ impl Index {
 		}
 
 		for (file_index, matched) in file_matched.iter().enumerate() {
-			progress.update(file_index);
+			let file = &mut self.files[file_index];
+			notifier(file.meta.path());
 			if !matched {
 				continue;
 			}
 
-			let file = &mut self.files[file_index];
 			if file.checksum.is_empty() {
 				file.checksum.calculate(file.meta.path(), &mut buf)?;
 			}
