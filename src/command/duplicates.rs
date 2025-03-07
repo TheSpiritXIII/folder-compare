@@ -15,6 +15,7 @@ pub fn duplicates(index_file: &PathBuf) -> Result<()> {
 
 	println!("Comparing files...");
 	let task = Task::new();
+	let total = index.file_count();
 	thread::scope(|s| -> Result<_> {
 		s.spawn(|| {
 			loop {
@@ -23,7 +24,7 @@ pub fn duplicates(index_file: &PathBuf) -> Result<()> {
 				}
 				let found = task.counter.value();
 				clear_line();
-				print!("Discovered {found} entries...");
+				print!("Processed {found} of {total} entries...");
 			}
 		});
 

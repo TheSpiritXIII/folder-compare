@@ -172,25 +172,32 @@ impl Index {
 
 	pub fn calculate_matches<T: ProgressCounter>(&mut self, progress: &T) -> io::Result<()> {
 		let mut file_index_by_size = HashMap::<u64, Vec<usize>>::new();
-		let mut count = 0;
 		for (file_index, file) in self.files.iter().enumerate() {
 			file_index_by_size.entry(file.size).or_default().push(file_index);
-
-			count += 1;
-			progress.update(count);
 		}
 
+		let mut file_matched = vec![false; self.files.len()];
 		let mut buf = Vec::with_capacity(BUF_SIZE);
 		for path_list in file_index_by_size.values() {
 			if path_list.len() > 1 {
 				for file_index in path_list {
-					let file = &mut self.files[*file_index];
-					if file.checksum.is_empty() {
-						file.checksum.calculate(file.meta.path(), &mut buf)?;
-					}
+					file_matched[*file_index] = true;
 				}
 			}
 		}
+
+		for (file_index, matched) in file_matched.iter().enumerate() {
+			progress.update(file_index);
+			if !matched {
+				continue;
+			}
+
+			let file = &mut self.files[file_index];
+			if file.checksum.is_empty() {
+				file.checksum.calculate(file.meta.path(), &mut buf)?;
+			}
+		}
+
 		Ok(())
 	}
 
