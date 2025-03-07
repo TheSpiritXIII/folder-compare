@@ -2,14 +2,15 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
 
+use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 
 use crate::command::task::condition_delay;
 use crate::command::task::Task;
-use crate::index;
+use crate::index::Index;
 
-pub fn stats(path: &PathBuf) -> Result<()> {
+pub fn stats(src: Option<&PathBuf>, index_file: Option<&PathBuf>) -> Result<()> {
 	let task = Arc::new(Task::new());
 	let task_thread = task.clone();
 
@@ -23,10 +24,19 @@ pub fn stats(path: &PathBuf) -> Result<()> {
 		}
 	});
 
-	let index = index::Index::from_path(path, &task.counter).with_context(|| {
-		let path = path.to_string_lossy();
-		format!("Unable to index: {path}")
-	})?;
+	let index = if let Some(path) = index_file {
+		println!("Opening index file...");
+		let mut index = Index::open(path)
+			.with_context(|| format!("Unable to open index: {}", path.display()))?;
+		if let Some(path) = src {
+			index.add(std::path::absolute(path)?, &task.counter)?;
+		}
+		index
+	} else if let Some(path) = src {
+		Index::from_path(std::path::absolute(path)?, &task.counter)?
+	} else {
+		bail!("Expected source or index-file");
+	};
 
 	task.set_done();
 	print_thread.join().unwrap();
@@ -37,5 +47,9 @@ pub fn stats(path: &PathBuf) -> Result<()> {
 	println!("{file_count} files.");
 	let dir_count = index.dirs_count();
 	println!("{dir_count} directories.");
+
+	if let Some(path) = index_file {
+		index.save(path)?;
+	}
 	Ok(())
 }

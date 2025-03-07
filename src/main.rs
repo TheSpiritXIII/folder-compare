@@ -28,17 +28,17 @@ struct Cli {
 #[derive(Subcommand, Debug)]
 enum Command {
 	/// Indexes the given path.
-	Index(Index),
+	Index(IndexSubcommand),
 	/// Show folder statistics.
-	Stats(Stats),
+	Stats(StatsSubcommand),
 	/// Find differences in two folders.
-	Diff(Diff),
+	Diff(DiffSubcommand),
 	/// Finds duplicates in a folder.
 	Duplicates(Duplicates),
 }
 
 #[derive(Args, Debug)]
-struct Index {
+struct IndexSubcommand {
 	/// Source path to index.
 	src: PathBuf,
 
@@ -52,13 +52,17 @@ struct Index {
 }
 
 #[derive(Args, Debug)]
-struct Stats {
-	/// Path to operate on, or the current path if not provided.
+struct StatsSubcommand {
+	/// Path to operate on, or the current path if this and `--index_file` are not provided.
 	src: Option<PathBuf>,
+
+	/// Path to the index file to check the stats for.
+	#[clap(long)]
+	index_file: Option<PathBuf>,
 }
 
 #[derive(Args, Debug)]
-struct Diff {
+struct DiffSubcommand {
 	/// Source path to find differences from.
 	src: PathBuf,
 	/// Destination path to find differences to, or the current path if not provided.
@@ -67,6 +71,7 @@ struct Diff {
 
 #[derive(Args, Debug)]
 struct Duplicates {
+	/// Path to the index file.
 	#[clap(long)]
 	index_file: PathBuf,
 }
@@ -75,17 +80,21 @@ fn main() -> Result<()> {
 	let cli = Cli::parse();
 	let path = env::current_dir().context("Unable to retrieve the current directory")?;
 	match cli.command {
-		Command::Index(command) => {
-			command::index(&command.src, &command.index_file, command.sha_512)
+		Command::Index(subcommand) => {
+			command::index(&subcommand.src, &subcommand.index_file, subcommand.sha_512)
 		}
-		Command::Stats(command) => {
-			let path = command.src.unwrap_or(path);
-			command::stats(&path)
+		Command::Stats(subcommand) => {
+			let path = if subcommand.index_file.is_some() {
+				subcommand.src.as_ref()
+			} else {
+				subcommand.src.as_ref().or(Some(&path))
+			};
+			command::stats(path, subcommand.index_file.as_ref())
 		}
-		Command::Diff(command) => {
-			let dst = command.dst.unwrap_or(path);
-			command::diff(&command.src, &dst)
+		Command::Diff(subcommand) => {
+			let dst = subcommand.dst.unwrap_or(path);
+			command::diff(&subcommand.src, &dst)
 		}
-		Command::Duplicates(command) => command::duplicates(&command.index_file),
+		Command::Duplicates(subcommand) => command::duplicates(&subcommand.index_file),
 	}
 }
