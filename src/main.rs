@@ -28,7 +28,7 @@ struct Cli {
 #[derive(Subcommand, Debug)]
 enum Command {
 	/// Indexes the given path.
-	Index(Update),
+	Index(Index),
 	/// Show folder statistics.
 	Stats(Stats),
 	/// Find differences in two folders.
@@ -38,7 +38,7 @@ enum Command {
 }
 
 #[derive(Args, Debug)]
-struct Update {
+struct Index {
 	/// Source path to index.
 	src: PathBuf,
 
@@ -75,7 +75,7 @@ fn main() -> Result<()> {
 	let path = env::current_dir().context("Unable to retrieve the current directory")?;
 	match cli.command {
 		Command::Index(command) => {
-			command::update(&command.src, &command.index_path, command.sha_512)
+			command::index(&command.src, &command.index_path, command.sha_512)
 		}
 		Command::Stats(command) => {
 			let path = command.name.unwrap_or(path);
