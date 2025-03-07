@@ -15,7 +15,7 @@ pub fn duplicates(index_file: &PathBuf) -> Result<()> {
 
 	println!("Comparing files...");
 	let task = Task::new();
-	let duplicates = thread::scope(|s| -> Result<_> {
+	thread::scope(|s| -> Result<_> {
 		s.spawn(|| {
 			loop {
 				if condition_delay(|| task.done()) {
@@ -27,11 +27,12 @@ pub fn duplicates(index_file: &PathBuf) -> Result<()> {
 			}
 		});
 
-		let duplicates = index.calculate_duplicates(&task.counter)?;
+		index.calculate_matches(&task.counter)?;
 		task.set_done();
-		Ok(duplicates)
+		Ok(())
 	})?;
 
+	let duplicates = index.duplicates();
 	if duplicates.is_empty() {
 		println!("No duplicates found");
 		return Ok(());

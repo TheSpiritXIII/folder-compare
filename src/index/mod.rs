@@ -170,13 +170,8 @@ impl Index {
 		self.dirs.len()
 	}
 
-	pub fn calculate_duplicates<T: ProgressCounter>(
-		&mut self,
-		progress: &T,
-	) -> io::Result<Vec<Vec<String>>> {
+	pub fn calculate_matches<T: ProgressCounter>(&mut self, progress: &T) -> io::Result<()> {
 		let mut file_index_by_size = HashMap::<u64, Vec<usize>>::new();
-		let mut checksum_map = HashMap::<(Checksum, u64), Vec<String>>::new();
-
 		let mut count = 0;
 		for (file_index, file) in self.files.iter().enumerate() {
 			file_index_by_size.entry(file.size).or_default().push(file_index);
@@ -196,25 +191,26 @@ impl Index {
 				}
 			}
 		}
+		Ok(())
+	}
 
+	pub fn duplicates(&self) -> Vec<Vec<String>> {
+		let mut path_by_checksum = HashMap::<(Checksum, u64), Vec<String>>::new();
 		for file in &self.files {
 			if !file.checksum.is_empty() {
-				checksum_map
+				path_by_checksum
 					.entry((file.checksum.clone(), file.size))
 					.or_default()
 					.push(file.meta.path().to_string());
 			}
-
-			count += 1;
-			progress.update(count);
 		}
 
 		let mut matches = Vec::new();
-		for (_, path_list) in checksum_map {
+		for (_, path_list) in path_by_checksum {
 			if path_list.len() > 1 {
 				matches.push(path_list);
 			}
 		}
-		Ok(matches)
+		matches
 	}
 }
