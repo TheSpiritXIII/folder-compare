@@ -8,6 +8,7 @@ use crate::command::task::condition_delay;
 use crate::command::task::Task;
 use crate::index;
 use crate::matches;
+use crate::util::terminal::clear_line;
 
 pub fn duplicates(index_file: &PathBuf) -> Result<()> {
 	let index = index::Index::open(index_file)
@@ -22,7 +23,8 @@ pub fn duplicates(index_file: &PathBuf) -> Result<()> {
 					return;
 				}
 				let found = task.counter.value();
-				println!("Discovered {found} entries...");
+				clear_line();
+				print!("Discovered {found} entries...");
 			}
 		});
 

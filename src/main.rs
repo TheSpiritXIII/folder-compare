@@ -1,11 +1,11 @@
 #![warn(clippy::pedantic)]
 
 mod command;
-
 mod index;
 mod legacy;
 mod matches;
 mod progress;
+mod util;
 
 use std::env;
 use std::path::PathBuf;

@@ -8,6 +8,7 @@ use anyhow::Result;
 use crate::command::task::condition_delay;
 use crate::command::task::Task;
 use crate::legacy;
+use crate::util::terminal::clear_line;
 
 pub fn diff(src: &PathBuf, dst: &PathBuf) -> Result<()> {
 	let mut index_src = legacy::index::Index::with(src)
@@ -27,7 +28,8 @@ pub fn diff(src: &PathBuf, dst: &PathBuf) -> Result<()> {
 				let found_src = task_src.counter.value();
 				let found_dst = task_dst.counter.value();
 				let found = found_src + found_dst;
-				println!("Discovered {found} entries...");
+				clear_line();
+				print!("Discovered {found} entries...");
 			}
 		});
 		s.spawn(|| {
@@ -54,7 +56,8 @@ pub fn diff(src: &PathBuf, dst: &PathBuf) -> Result<()> {
 				let found = task_diff.counter.value();
 				#[allow(clippy::cast_precision_loss)]
 				let percent = found as f64 / total as f64 * 100_f64;
-				println!("Compared {found} ({percent:04.1}%) entries...");
+				clear_line();
+				print!("Compared {found} ({percent:04.1}%) entries...");
 			}
 		});
 

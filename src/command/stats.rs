@@ -8,6 +8,7 @@ use anyhow::Result;
 use crate::command::task::condition_delay;
 use crate::command::task::Task;
 use crate::index::Index;
+use crate::util::terminal::clear_line;
 
 pub fn stats(src: Option<&PathBuf>, index_file: Option<&PathBuf>) -> Result<()> {
 	let task = Task::new();
@@ -18,12 +19,12 @@ pub fn stats(src: Option<&PathBuf>, index_file: Option<&PathBuf>) -> Result<()> 
 					return;
 				}
 				let found = task.counter.value();
-				println!("Discovered {found} entries...");
+				clear_line();
+				print!("Discovered {found} entries...");
 			}
 		});
 
 		let index = if let Some(path) = index_file {
-			println!("Opening index file...");
 			let mut index = Index::open(path)
 				.with_context(|| format!("Unable to open index: {}", path.display()))?;
 			if let Some(path) = src {
