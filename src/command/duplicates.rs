@@ -7,11 +7,10 @@ use anyhow::Result;
 use crate::command::task::condition_delay;
 use crate::command::task::Task;
 use crate::index;
-use crate::matches;
 use crate::util::terminal::clear_line;
 
 pub fn duplicates(index_file: &PathBuf) -> Result<()> {
-	let index = index::Index::open(index_file)
+	let mut index = index::Index::open(index_file)
 		.with_context(|| format!("Unable to open index: {}", index_file.display()))?;
 
 	println!("Comparing files...");
@@ -28,7 +27,7 @@ pub fn duplicates(index_file: &PathBuf) -> Result<()> {
 			}
 		});
 
-		let duplicates = index.calculate_duplicates(&task.counter);
+		let duplicates = index.calculate_duplicates(&task.counter)?;
 		task.set_done();
 		Ok(duplicates)
 	})?;
@@ -38,18 +37,8 @@ pub fn duplicates(index_file: &PathBuf) -> Result<()> {
 		return Ok(());
 	}
 
-	for (match_kind, file_list) in duplicates {
-		match match_kind {
-			matches::MatchKind::Size => {
-				println!("Potential duplicates: {file_list:?}");
-			}
-			matches::MatchKind::Metadata => {
-				println!("Metadata duplicates: {file_list:?}");
-			}
-			matches::MatchKind::Checksums => {
-				println!("Checksum duplicates: {file_list:?}");
-			}
-		}
+	for file_list in duplicates {
+		println!("Duplicate: {file_list:?}");
 	}
 	Ok(())
 }

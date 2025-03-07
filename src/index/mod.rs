@@ -12,7 +12,6 @@ use metadata::Metadata;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::matches::MatchKind;
 use crate::progress::ProgressCounter;
 
 // Size of buffer to compare files, optimized for an 8 KiB average file-size.
@@ -172,24 +171,33 @@ impl Index {
 	}
 
 	pub fn calculate_duplicates<T: ProgressCounter>(
-		&self,
+		&mut self,
 		progress: &T,
-	) -> Vec<(MatchKind, Vec<String>)> {
-		let mut size_map = HashMap::<(String, u64), Vec<String>>::new();
-		let mut metadata_map = HashMap::<(Metadata, u64), Vec<String>>::new();
+	) -> io::Result<Vec<Vec<String>>> {
+		let mut file_index_by_size = HashMap::<u64, Vec<usize>>::new();
 		let mut checksum_map = HashMap::<(Checksum, u64), Vec<String>>::new();
 
 		let mut count = 0;
+		for (file_index, file) in self.files.iter().enumerate() {
+			file_index_by_size.entry(file.size).or_default().push(file_index);
+
+			count += 1;
+			progress.update(count);
+		}
+
+		let mut buf = Vec::with_capacity(BUF_SIZE);
+		for path_list in file_index_by_size.values() {
+			if path_list.len() > 1 {
+				for file_index in path_list {
+					let file = &mut self.files[*file_index];
+					if file.checksum.is_empty() {
+						file.checksum.calculate(file.meta.path(), &mut buf)?;
+					}
+				}
+			}
+		}
+
 		for file in &self.files {
-			let meta_normalized = file.meta.normalize();
-			size_map
-				.entry((meta_normalized.path().to_string(), file.size))
-				.or_default()
-				.push(file.meta.path().to_string());
-			metadata_map
-				.entry((meta_normalized, file.size))
-				.or_default()
-				.push(file.meta.path().to_string());
 			if !file.checksum.is_empty() {
 				checksum_map
 					.entry((file.checksum.clone(), file.size))
@@ -201,22 +209,12 @@ impl Index {
 			progress.update(count);
 		}
 
-		let mut matches = Vec::<(MatchKind, Vec<String>)>::new();
-		for (_, path_list) in size_map {
-			if path_list.len() > 1 {
-				matches.push((MatchKind::Size, path_list));
-			}
-		}
-		for (_, path_list) in metadata_map {
-			if path_list.len() > 1 {
-				matches.push((MatchKind::Metadata, path_list));
-			}
-		}
+		let mut matches = Vec::new();
 		for (_, path_list) in checksum_map {
 			if path_list.len() > 1 {
-				matches.push((MatchKind::Checksums, path_list));
+				matches.push(path_list);
 			}
 		}
-		matches
+		Ok(matches)
 	}
 }

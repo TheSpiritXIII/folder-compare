@@ -3,7 +3,6 @@
 mod command;
 mod index;
 mod legacy;
-mod matches;
 mod progress;
 mod util;
 

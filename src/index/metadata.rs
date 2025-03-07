@@ -33,15 +33,6 @@ impl Metadata {
 		})
 	}
 
-	pub fn normalize(&self) -> Self {
-		let path = Path::new(&self.path);
-		Self {
-			path: path.file_name().unwrap().to_string_lossy().into_owned(),
-			modified_time: self.modified_time,
-			created_time: self.created_time,
-		}
-	}
-
 	pub fn path(&self) -> &str {
 		&self.path
 	}
