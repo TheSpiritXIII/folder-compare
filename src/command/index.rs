@@ -9,7 +9,7 @@ use crate::command::task::condition_delay;
 use crate::command::task::Task;
 use crate::index::Index;
 
-pub fn index(src: &PathBuf, index_path: &PathBuf, sha_512: bool) -> Result<()> {
+pub fn index(src: &PathBuf, index_file: &PathBuf, sha_512: bool) -> Result<()> {
 	let task = Arc::new(Task::new());
 	let task_thread = task.clone();
 
@@ -23,10 +23,9 @@ pub fn index(src: &PathBuf, index_path: &PathBuf, sha_512: bool) -> Result<()> {
 		}
 	});
 
-	let mut index = if index_path.exists() {
-		let mut index = Index::open(index_path).with_context(|| {
-			let path = index_path.to_string_lossy();
-			format!("Unable to open index: {path}")
+	let mut index = if index_file.exists() {
+		let mut index = Index::open(index_file).with_context(|| {
+			format!("Unable to open index: {}", index_file.display())
 		})?;
 		index.add(std::path::absolute(src)?, &task.counter)?;
 		index
@@ -38,6 +37,6 @@ pub fn index(src: &PathBuf, index_path: &PathBuf, sha_512: bool) -> Result<()> {
 	if sha_512 {
 		index.calculate_all()?;
 	}
-	index.save(index_path)?;
+	index.save(index_file)?;
 	Ok(())
 }

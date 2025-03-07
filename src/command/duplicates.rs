@@ -12,8 +12,7 @@ use crate::matches;
 
 pub fn duplicates(index_file: &PathBuf) -> Result<()> {
 	let index = index::Index::open(index_file).with_context(|| {
-		let path = index_file.to_string_lossy();
-		format!("Unable to open index: {path}")
+		format!("Unable to open index: {}", index_file.display())
 	})?;
 
 	println!("Comparing files...");

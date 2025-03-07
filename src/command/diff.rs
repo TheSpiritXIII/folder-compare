@@ -11,12 +11,10 @@ use crate::legacy;
 
 pub fn diff(src: &PathBuf, dst: &PathBuf) -> Result<()> {
 	let mut index_src = legacy::index::Index::with(src).with_context(|| {
-		let path = src.to_string_lossy();
-		format!("Unable to index: {path}")
+		format!("Unable to index: {}", src.display())
 	})?;
 	let mut index_dst = legacy::index::Index::with(dst).with_context(|| {
-		let path = dst.to_string_lossy();
-		format!("Unable to index: {path}")
+		format!("Unable to index: {}", dst.display())
 	})?;
 
 	let task_src = Arc::new(Task::new());
