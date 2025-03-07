@@ -10,26 +10,22 @@ use crate::command::task::Task;
 use crate::legacy;
 
 pub fn diff(src: &PathBuf, dst: &PathBuf) -> Result<()> {
-	let mut index_src = legacy::index::Index::with(src).with_context(|| {
-		format!("Unable to index: {}", src.display())
-	})?;
-	let mut index_dst = legacy::index::Index::with(dst).with_context(|| {
-		format!("Unable to index: {}", dst.display())
-	})?;
+	let mut index_src = legacy::index::Index::with(src)
+		.with_context(|| format!("Unable to index: {}", src.display()))?;
+	let mut index_dst = legacy::index::Index::with(dst)
+		.with_context(|| format!("Unable to index: {}", dst.display()))?;
 
-	let task_src = Arc::new(Task::new());
-	let task_dst = Arc::new(Task::new());
+	let task_src = Task::new();
+	let task_dst = Task::new();
 
-	let task_thread_src = task_src.clone();
-	let task_thread_dst = task_dst.clone();
 	thread::scope(|s| {
 		s.spawn(|| {
 			loop {
-				if condition_delay(|| task_thread_src.done() && task_thread_dst.done()) {
+				if condition_delay(|| task_src.done() && task_dst.done()) {
 					return;
 				}
-				let found_src = task_thread_src.counter.value();
-				let found_dst = task_thread_dst.counter.value();
+				let found_src = task_src.counter.value();
+				let found_dst = task_dst.counter.value();
 				let found = found_src + found_dst;
 				println!("Discovered {found} entries...");
 			}
@@ -49,25 +45,26 @@ pub fn diff(src: &PathBuf, dst: &PathBuf) -> Result<()> {
 	println!("Found {total} total entries!");
 
 	let task_diff = Arc::new(Task::new());
-	let task_diff_copy = task_diff.clone();
-	let print_thread = thread::spawn(move || {
-		loop {
-			if condition_delay(|| task_diff_copy.done()) {
-				return;
+	let diff_list = thread::scope(|s| {
+		s.spawn(|| {
+			loop {
+				if condition_delay(|| task_diff.done()) {
+					return;
+				}
+				let found = task_diff.counter.value();
+				#[allow(clippy::cast_precision_loss)]
+				let percent = found as f64 / total as f64 * 100_f64;
+				println!("Compared {found} ({percent:04.1}%) entries...");
 			}
-			let found = task_diff_copy.counter.value();
-			#[allow(clippy::cast_precision_loss)]
-			let percent = found as f64 / total as f64 * 100_f64;
-			println!("Compared {found} ({percent:04.1}%) entries...");
-		}
-	});
+		});
 
-	let diff_list = index_src.diff(&index_dst, &task_diff.counter);
-	if diff_list.is_empty() {
-		println!("No changes");
-	}
-	task_diff.set_done();
-	print_thread.join().unwrap();
+		let diff_list = index_src.diff(&index_dst, &task_diff.counter);
+		if diff_list.is_empty() {
+			println!("No changes");
+		}
+		task_diff.set_done();
+		diff_list
+	});
 
 	for diff in &diff_list {
 		match diff {
