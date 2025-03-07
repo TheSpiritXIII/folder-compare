@@ -5,7 +5,7 @@ use std::thread;
 use anyhow::Context;
 use anyhow::Result;
 
-use crate::command::task::interval;
+use crate::command::task::condition_delay;
 use crate::command::task::Task;
 use crate::legacy;
 
@@ -26,15 +26,15 @@ pub fn diff(src: &PathBuf, dst: &PathBuf) -> Result<()> {
 	let task_thread_dst = task_dst.clone();
 	thread::scope(|s| {
 		s.spawn(|| {
-			interval(
-				|| task_thread_src.done() && task_thread_dst.done(),
-				|| {
-					let found_src = task_thread_src.counter.value();
-					let found_dst = task_thread_dst.counter.value();
-					let found = found_src + found_dst;
-					println!("Discovered {found} entries...");
-				},
-			);
+			loop {
+				if condition_delay(|| task_thread_src.done() && task_thread_dst.done()) {
+					return;
+				}
+				let found_src = task_thread_src.counter.value();
+				let found_dst = task_thread_dst.counter.value();
+				let found = found_src + found_dst;
+				println!("Discovered {found} entries...");
+			}
 		});
 		s.spawn(|| {
 			index_src.expand_all(&task_src.counter);
@@ -53,15 +53,15 @@ pub fn diff(src: &PathBuf, dst: &PathBuf) -> Result<()> {
 	let task_diff = Arc::new(Task::new());
 	let task_diff_copy = task_diff.clone();
 	let print_thread = thread::spawn(move || {
-		interval(
-			|| task_diff_copy.done(),
-			|| {
-				let found = task_diff_copy.counter.value();
-				#[allow(clippy::cast_precision_loss)]
-				let percent = found as f64 / total as f64 * 100_f64;
-				println!("Compared {found} ({percent:04.1}%) entries...");
-			},
-		);
+		loop {
+			if condition_delay(|| task_diff_copy.done()) {
+				return;
+			}
+			let found = task_diff_copy.counter.value();
+			#[allow(clippy::cast_precision_loss)]
+			let percent = found as f64 / total as f64 * 100_f64;
+			println!("Compared {found} ({percent:04.1}%) entries...");
+		}
 	});
 
 	let diff_list = index_src.diff(&index_dst, &task_diff.counter);

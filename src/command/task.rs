@@ -4,23 +4,19 @@ use std::time::SystemTime;
 
 use crate::progress;
 
-/// Runs the given `run_fn` every second, as long as `is_done_fn` is false. It is possible that
-/// `run_fn` never runs if `is_done_fn` is true.
-pub fn interval(is_done_fn: impl Fn() -> bool, run_fn: impl Fn()) {
+// Runs the given condition method with a delay.
+pub fn condition_delay(condition_fn: impl Fn() -> bool) -> bool {
+	let now = SystemTime::now();
 	loop {
-		let now = SystemTime::now();
-		loop {
-			if is_done_fn() {
-				return;
-			}
-			// thread::sleep(Duration::from_secs(1));
-			if now.elapsed().unwrap().as_secs() >= 1 {
-				break;
-			}
-			thread::yield_now();
+		if condition_fn() {
+			return true;
 		}
-		run_fn();
+		if now.elapsed().unwrap().as_secs() >= 1 {
+			break;
+		}
+		thread::yield_now();
 	}
+	false
 }
 
 pub struct Task {

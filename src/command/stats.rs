@@ -5,7 +5,7 @@ use std::thread;
 use anyhow::Context;
 use anyhow::Result;
 
-use crate::command::task::interval;
+use crate::command::task::condition_delay;
 use crate::command::task::Task;
 use crate::index;
 
@@ -14,13 +14,13 @@ pub fn stats(path: &PathBuf) -> Result<()> {
 	let task_thread = task.clone();
 
 	let print_thread = thread::spawn(move || {
-		interval(
-			|| task_thread.done(),
-			|| {
-				let found = task_thread.counter.value();
-				println!("Discovered {found} entries...");
-			},
-		);
+		loop {
+			if condition_delay(|| task_thread.done()) {
+				return;
+			}
+			let found = task_thread.counter.value();
+			println!("Discovered {found} entries...");
+		}
 	});
 
 	let index = index::Index::from_path(path, &task.counter).with_context(|| {
