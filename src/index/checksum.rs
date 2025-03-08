@@ -9,6 +9,7 @@ use sha2::Digest;
 use sha2::Sha512;
 
 fn sha512_checksum(path: impl AsRef<Path>, buf: &mut Vec<u8>) -> io::Result<String> {
+	buf.clear();
 	let mut file = fs::File::open(path)?;
 	let mut hasher = Sha512::new();
 	file.read_to_end(buf)?;

@@ -42,11 +42,10 @@ pub fn duplicates(
 	let duplicates = index.duplicates();
 	if duplicates.is_empty() {
 		println!("No duplicates found");
-		return Ok(());
-	}
-
-	for file_list in duplicates {
-		println!("Duplicate: {file_list:?}");
+	} else {
+		for file_list in duplicates {
+			println!("Duplicate: {file_list:?}");
+		}
 	}
 
 	if index.dirty() {

@@ -200,47 +200,47 @@ impl Index {
 		let mut file_matched = vec![false; self.files.len()];
 		let mut buf = Vec::with_capacity(BUF_SIZE);
 		for path_list in file_index_by_size.values() {
-			if path_list.len() > 1 {
-				let mut name_by_count = HashMap::<String, usize>::new();
-				let mut metadata_by_count = HashMap::<(SystemTime, SystemTime), usize>::new();
-				for file_index in path_list {
-					let file = &self.files[*file_index];
-					if match_name {
-						name_by_count
-							.entry(file.meta.name().to_string())
-							.and_modify(|count| *count += 1)
-							.or_insert(1);
+			if path_list.len() < 2 {
+				continue;
+			}
+			let mut name_by_count = HashMap::<String, usize>::new();
+			let mut metadata_by_count = HashMap::<(SystemTime, SystemTime), usize>::new();
+			for file_index in path_list {
+				let file = &self.files[*file_index];
+				if match_name {
+					name_by_count
+						.entry(file.meta.name().to_string())
+						.and_modify(|count| *count += 1)
+						.or_insert(1);
+				}
+				if match_meta {
+					metadata_by_count
+						.entry((file.meta.created_time(), file.meta.modified_time()))
+						.and_modify(|count| *count += 1)
+						.or_insert(1);
+				}
+			}
+
+			for file_index in path_list {
+				let file = &self.files[*file_index];
+				if match_name {
+					if let Some(count) = name_by_count.get(file.meta.name()) {
+						if *count < 2 {
+							continue;
+						}
 					}
-					if match_meta {
-						metadata_by_count
-							.entry((file.meta.created_time(), file.meta.modified_time()))
-							.and_modify(|count| *count += 1)
-							.or_insert(1);
+				}
+				if match_meta {
+					if let Some(count) = metadata_by_count
+						.get(&(file.meta.created_time(), file.meta.modified_time()))
+					{
+						if *count < 2 {
+							continue;
+						}
 					}
 				}
 
-				for file_index in path_list {
-					let file = &self.files[*file_index];
-					if match_name {
-						if let Some(count) = name_by_count.get(file.meta.name()) {
-							if *count < 2 {
-								continue;
-							}
-						}
-					}
-					if match_meta {
-						if let Some(count) = metadata_by_count
-							.get(&(file.meta.created_time(), file.meta.modified_time()))
-						{
-							if *count < 2 {
-								continue;
-							}
-						}
-						continue;
-					}
-
-					file_matched[*file_index] = true;
-				}
+				file_matched[*file_index] = true;
 			}
 		}
 
