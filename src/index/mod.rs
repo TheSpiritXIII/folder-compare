@@ -185,7 +185,8 @@ impl Index {
 		mut notifier: impl FnMut(&str),
 		filter: Option<&Regex>,
 		match_name: bool,
-		match_meta: bool,
+		match_created: bool,
+		match_modified: bool,
 	) -> io::Result<()> {
 		let mut file_index_by_size = HashMap::<u64, Vec<usize>>::new();
 		for (file_index, file) in self.files.iter().enumerate() {
@@ -204,7 +205,8 @@ impl Index {
 				continue;
 			}
 			let mut name_by_count = HashMap::<String, usize>::new();
-			let mut metadata_by_count = HashMap::<(SystemTime, SystemTime), usize>::new();
+			let mut created_by_count = HashMap::<SystemTime, usize>::new();
+			let mut modified_by_count = HashMap::<SystemTime, usize>::new();
 			for file_index in path_list {
 				let file = &self.files[*file_index];
 				if match_name {
@@ -213,9 +215,15 @@ impl Index {
 						.and_modify(|count| *count += 1)
 						.or_insert(1);
 				}
-				if match_meta {
-					metadata_by_count
-						.entry((file.meta.created_time(), file.meta.modified_time()))
+				if match_created {
+					created_by_count
+						.entry(file.meta.created_time())
+						.and_modify(|count| *count += 1)
+						.or_insert(1);
+				}
+				if match_modified {
+					modified_by_count
+						.entry(file.meta.modified_time())
 						.and_modify(|count| *count += 1)
 						.or_insert(1);
 				}
@@ -230,10 +238,15 @@ impl Index {
 						}
 					}
 				}
-				if match_meta {
-					if let Some(count) = metadata_by_count
-						.get(&(file.meta.created_time(), file.meta.modified_time()))
-					{
+				if match_created {
+					if let Some(count) = created_by_count.get(&file.meta.modified_time()) {
+						if *count < 2 {
+							continue;
+						}
+					}
+				}
+				if match_modified {
+					if let Some(count) = modified_by_count.get(&file.meta.modified_time()) {
 						if *count < 2 {
 							continue;
 						}

@@ -84,10 +84,16 @@ struct Duplicates {
 	#[clap(long)]
 	match_name: bool,
 
-	/// If set, only matches duplicates whose metadata match causing potential false negatives but
-	/// a faster evaluation.
+	/// If set, only matches duplicates whose created times match causing potential false negatives
+	/// but a faster evaluation. Note: On Windows, created times are updated when duplicating
+	/// files.
 	#[clap(long)]
-	match_meta: bool,
+	match_created: bool,
+
+	/// If set, only matches duplicates whose modified times match causing potential false
+	/// negatives but a faster evaluation.
+	#[clap(long)]
+	match_modified: bool,
 }
 
 fn main() -> Result<()> {
@@ -114,7 +120,8 @@ fn main() -> Result<()> {
 				&subcommand.index_file,
 				subcommand.filter.as_ref(),
 				subcommand.match_name,
-				subcommand.match_meta,
+				subcommand.match_created,
+				subcommand.match_modified,
 			)
 		}
 	}

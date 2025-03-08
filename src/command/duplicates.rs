@@ -14,7 +14,8 @@ pub fn duplicates(
 	index_file: &PathBuf,
 	filter: Option<&Regex>,
 	match_name: bool,
-	match_meta: bool,
+	match_created: bool,
+	match_modified: bool,
 ) -> Result<()> {
 	println!("Opening index file...");
 	let mut index = index::Index::open(index_file)
@@ -35,7 +36,8 @@ pub fn duplicates(
 		},
 		filter,
 		match_name,
-		match_meta,
+		match_created,
+		match_modified,
 	)?;
 
 	println!("Gathering duplicates...");
