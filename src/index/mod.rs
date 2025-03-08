@@ -10,6 +10,7 @@ use std::time::SystemTime;
 
 use checksum::Checksum;
 use metadata::Metadata;
+use regex::Regex;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -174,11 +175,17 @@ impl Index {
 	pub fn calculate_matches(
 		&mut self,
 		mut notifier: impl FnMut(&str),
+		filter: Option<&Regex>,
 		match_name: bool,
-		match_metadata: bool,
+		match_meta: bool,
 	) -> io::Result<()> {
 		let mut file_index_by_size = HashMap::<u64, Vec<usize>>::new();
 		for (file_index, file) in self.files.iter().enumerate() {
+			if let Some(filter) = filter {
+				if !filter.is_match(file.meta.path()) {
+					continue;
+				}
+			}
 			file_index_by_size.entry(file.size).or_default().push(file_index);
 		}
 
@@ -196,7 +203,7 @@ impl Index {
 							.and_modify(|count| *count += 1)
 							.or_insert(1);
 					}
-					if match_metadata {
+					if match_meta {
 						metadata_by_count
 							.entry((file.meta.created_time(), file.meta.modified_time()))
 							.and_modify(|count| *count += 1)
@@ -213,7 +220,7 @@ impl Index {
 							}
 						}
 					}
-					if match_metadata {
+					if match_meta {
 						if let Some(count) = metadata_by_count
 							.get(&(file.meta.created_time(), file.meta.modified_time()))
 						{

@@ -4,12 +4,19 @@ use std::path::PathBuf;
 
 use anyhow::Context;
 use anyhow::Result;
+use regex::Regex;
 
 use crate::command::task::Delayer;
 use crate::index;
 use crate::util::terminal::clear_line;
 
-pub fn duplicates(index_file: &PathBuf, match_name: bool, match_meta: bool) -> Result<()> {
+pub fn duplicates(
+	index_file: &PathBuf,
+	filter: Option<&Regex>,
+	match_name: bool,
+	match_meta: bool,
+) -> Result<()> {
+	println!("Opening index file...");
 	let mut index = index::Index::open(index_file)
 		.with_context(|| format!("Unable to open index: {}", index_file.display()))?;
 
@@ -26,6 +33,7 @@ pub fn duplicates(index_file: &PathBuf, match_name: bool, match_meta: bool) -> R
 				io::stdout().flush().unwrap();
 			}
 		},
+		filter,
 		match_name,
 		match_meta,
 	)?;

@@ -14,6 +14,7 @@ use anyhow::Result;
 use clap::Args;
 use clap::Parser;
 use clap::Subcommand;
+use regex::Regex;
 
 /// Utility to compare folder contents.
 #[derive(Parser, Debug)]
@@ -74,6 +75,10 @@ struct Duplicates {
 	#[clap(long)]
 	index_file: PathBuf,
 
+	/// Regular expression containing a path filer.
+	#[clap(long)]
+	filter: Option<Regex>,
+
 	/// If set, only matches duplicates whose names match causing potential false negatives but a
 	/// faster evaluation.
 	#[clap(long)]
@@ -107,6 +112,7 @@ fn main() -> Result<()> {
 		Command::Duplicates(subcommand) => {
 			command::duplicates(
 				&subcommand.index_file,
+				subcommand.filter.as_ref(),
 				subcommand.match_name,
 				subcommand.match_meta,
 			)
