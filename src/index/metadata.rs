@@ -19,8 +19,8 @@ pub fn normalized_path(path: impl AsRef<Path>) -> String {
 #[derive(Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
 pub struct Metadata {
 	path: String,
-	modified_time: std::time::SystemTime,
 	created_time: std::time::SystemTime,
+	modified_time: std::time::SystemTime,
 }
 
 impl Metadata {
@@ -28,12 +28,27 @@ impl Metadata {
 		let metadata = fs::metadata(path.as_ref())?;
 		Ok(Metadata {
 			path: normalized_path(path.as_ref()),
-			modified_time: metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH),
 			created_time: metadata.created().unwrap_or(SystemTime::UNIX_EPOCH),
+			modified_time: metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH),
 		})
 	}
 
 	pub fn path(&self) -> &str {
 		&self.path
+	}
+
+	pub fn name(&self) -> &str {
+		if let Some(index) = self.path.rfind('/') {
+			return &self.path[(index + 1)..];
+		}
+		&self.path
+	}
+
+	pub fn created_time(&self) -> SystemTime {
+		self.created_time
+	}
+
+	pub fn modified_time(&self) -> SystemTime {
+		self.modified_time
 	}
 }

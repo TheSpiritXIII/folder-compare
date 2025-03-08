@@ -18,7 +18,7 @@ impl Delayer {
 	pub fn run(&mut self) -> bool {
 		let elapsed = self.start.elapsed().unwrap();
 		if elapsed.as_secs() >= 1 {
-			self.start.checked_add(elapsed);
+			self.start = SystemTime::now();
 			return true;
 		}
 		false

@@ -6,6 +6,7 @@ use std::collections::VecDeque;
 use std::fs::{self};
 use std::io::{self};
 use std::path::Path;
+use std::time::SystemTime;
 
 use checksum::Checksum;
 use metadata::Metadata;
@@ -170,7 +171,12 @@ impl Index {
 		self.dirs.len()
 	}
 
-	pub fn calculate_matches(&mut self, mut notifier: impl FnMut(&str)) -> io::Result<()> {
+	pub fn calculate_matches(
+		&mut self,
+		mut notifier: impl FnMut(&str),
+		match_name: bool,
+		match_metadata: bool,
+	) -> io::Result<()> {
 		let mut file_index_by_size = HashMap::<u64, Vec<usize>>::new();
 		for (file_index, file) in self.files.iter().enumerate() {
 			file_index_by_size.entry(file.size).or_default().push(file_index);
@@ -180,7 +186,44 @@ impl Index {
 		let mut buf = Vec::with_capacity(BUF_SIZE);
 		for path_list in file_index_by_size.values() {
 			if path_list.len() > 1 {
+				let mut name_by_count = HashMap::<String, usize>::new();
+				let mut metadata_by_count = HashMap::<(SystemTime, SystemTime), usize>::new();
 				for file_index in path_list {
+					let file = &self.files[*file_index];
+					if match_name {
+						name_by_count
+							.entry(file.meta.name().to_string())
+							.and_modify(|count| *count += 1)
+							.or_insert(1);
+					}
+					if match_metadata {
+						metadata_by_count
+							.entry((file.meta.created_time(), file.meta.modified_time()))
+							.and_modify(|count| *count += 1)
+							.or_insert(1);
+					}
+				}
+
+				for file_index in path_list {
+					let file = &self.files[*file_index];
+					if match_name {
+						if let Some(count) = name_by_count.get(file.meta.name()) {
+							if *count < 2 {
+								continue;
+							}
+						}
+					}
+					if match_metadata {
+						if let Some(count) = metadata_by_count
+							.get(&(file.meta.created_time(), file.meta.modified_time()))
+						{
+							if *count < 2 {
+								continue;
+							}
+						}
+						continue;
+					}
+
 					file_matched[*file_index] = true;
 				}
 			}

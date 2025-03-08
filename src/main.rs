@@ -73,6 +73,16 @@ struct Duplicates {
 	/// Path to the index file.
 	#[clap(long)]
 	index_file: PathBuf,
+
+	/// If set, only matches duplicates whose names match causing potential false negatives but a
+	/// faster evaluation.
+	#[clap(long)]
+	match_name: bool,
+
+	/// If set, only matches duplicates whose metadata match causing potential false negatives but
+	/// a faster evaluation.
+	#[clap(long)]
+	match_meta: bool,
 }
 
 fn main() -> Result<()> {
@@ -94,6 +104,12 @@ fn main() -> Result<()> {
 			let dst = subcommand.dst.unwrap_or(path);
 			command::diff(&subcommand.src, &dst)
 		}
-		Command::Duplicates(subcommand) => command::duplicates(&subcommand.index_file),
+		Command::Duplicates(subcommand) => {
+			command::duplicates(
+				&subcommand.index_file,
+				subcommand.match_name,
+				subcommand.match_meta,
+			)
+		}
 	}
 }
