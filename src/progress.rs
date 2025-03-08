@@ -18,6 +18,10 @@ impl AtomicProgressCounter {
 	pub fn value(&self) -> usize {
 		self.counter.load(atomic::Ordering::Relaxed)
 	}
+
+	pub fn inc(&self) -> usize {
+		self.counter.fetch_add(1, atomic::Ordering::Relaxed)
+	}
 }
 
 impl ProgressCounter for AtomicProgressCounter {

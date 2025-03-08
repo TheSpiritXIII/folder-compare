@@ -2,7 +2,6 @@
 
 mod command;
 mod index;
-mod legacy;
 mod progress;
 mod util;
 

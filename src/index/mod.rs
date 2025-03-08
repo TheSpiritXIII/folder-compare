@@ -39,16 +39,20 @@ pub struct Index {
 }
 
 impl Index {
+	pub fn new() -> Self {
+		Self {
+			files: Vec::new(),
+			dirs: Vec::new(),
+			dirty: false,
+		}
+	}
+
 	// Recursively finds all files in the given directory and adds them to the index.
 	pub fn from_path<T: ProgressCounter>(
 		path: impl AsRef<std::path::Path>,
 		progress: &T,
 	) -> io::Result<Self> {
-		let mut index = Self {
-			files: Vec::new(),
-			dirs: Vec::new(),
-			dirty: false,
-		};
+		let mut index = Self::new();
 		if path.as_ref().is_dir() {
 			index.add_dir(path.as_ref(), progress)?;
 			return Ok(index);
@@ -298,7 +302,74 @@ impl Index {
 		matches
 	}
 
+	pub fn diff(
+		&mut self,
+		other: &mut Index,
+		mut notifier: impl FnMut(&str, &str),
+	) -> io::Result<Vec<Diff>> {
+		let mut buf = Vec::with_capacity(BUF_SIZE);
+		let mut diff_list = Vec::new();
+		let mut file_index_self = 0;
+		let mut file_index_other = 0;
+		loop {
+			if file_index_self == self.files.len() {
+				for file in &other.files[file_index_other..] {
+					diff_list.push(Diff::Removed(file.meta.path().to_string()));
+				}
+				break;
+			}
+			if file_index_other == other.files.len() {
+				for file in &self.files[file_index_self..] {
+					diff_list.push(Diff::Added(file.meta.path().to_string()));
+				}
+				break;
+			}
+
+			let file_self = &mut self.files[file_index_self];
+			let file_other = &mut other.files[file_index_other];
+			notifier(file_self.meta.path(), file_other.meta.path());
+
+			match file_self.meta.path().cmp(file_other.meta.path()) {
+				std::cmp::Ordering::Less => {
+					diff_list.push(Diff::Added(file_self.meta.path().to_string()));
+					file_index_self += 1;
+				}
+				std::cmp::Ordering::Greater => {
+					diff_list.push(Diff::Removed(file_other.meta.path().to_string()));
+					file_index_other += 1;
+				}
+				std::cmp::Ordering::Equal => {
+					if file_self.size == file_other.size {
+						if file_self.checksum.is_empty() {
+							file_self.checksum.calculate(file_self.meta.path(), &mut buf)?;
+							self.dirty = true;
+						}
+						if file_other.checksum.is_empty() {
+							file_other.checksum.calculate(file_self.meta.path(), &mut buf)?;
+							other.dirty = true;
+						}
+
+						if file_self.checksum != file_other.checksum {
+							diff_list.push(Diff::Changed(file_self.meta.path().to_string()));
+						}
+					} else {
+						diff_list.push(Diff::Changed(file_self.meta.path().to_string()));
+					}
+					file_index_self += 1;
+					file_index_other += 1;
+				}
+			}
+		}
+		Ok(diff_list)
+	}
+
 	pub fn dirty(&self) -> bool {
 		self.dirty
 	}
+}
+
+pub enum Diff {
+	Added(String),
+	Removed(String),
+	Changed(String),
 }
