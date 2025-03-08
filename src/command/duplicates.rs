@@ -41,7 +41,7 @@ pub fn duplicates(
 	)?;
 
 	println!("Gathering duplicates...");
-	let duplicates = index.duplicates();
+	let duplicates = index.duplicates(filter);
 	if duplicates.is_empty() {
 		println!("No duplicates found");
 	} else {

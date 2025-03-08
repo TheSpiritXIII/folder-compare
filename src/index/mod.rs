@@ -273,10 +273,15 @@ impl Index {
 		Ok(())
 	}
 
-	pub fn duplicates(&self) -> Vec<Vec<String>> {
+	pub fn duplicates(&self, filter: Option<&Regex>) -> Vec<Vec<String>> {
 		let mut path_by_checksum = HashMap::<(Checksum, u64), Vec<String>>::new();
 		for file in &self.files {
 			if !file.checksum.is_empty() {
+				if let Some(filter) = filter {
+					if !filter.is_match(file.meta.path()) {
+						continue;
+					}
+				}
 				path_by_checksum
 					.entry((file.checksum.clone(), file.size))
 					.or_default()
