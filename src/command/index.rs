@@ -1,3 +1,5 @@
+use std::io;
+use std::io::Write;
 use std::path::PathBuf;
 use std::thread;
 
@@ -20,6 +22,7 @@ pub fn index(src: &PathBuf, index_file: &PathBuf, sha_512: bool) -> Result<()> {
 				let found = task.counter.value();
 				clear_line();
 				print!("Discovered {found} entries...");
+				io::stdout().flush().unwrap();
 			}
 		});
 

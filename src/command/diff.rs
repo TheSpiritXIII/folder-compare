@@ -1,3 +1,5 @@
+use std::io;
+use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
@@ -30,6 +32,7 @@ pub fn diff(src: &PathBuf, dst: &PathBuf) -> Result<()> {
 				let found = found_src + found_dst;
 				clear_line();
 				print!("Discovered {found} entries...");
+				io::stdout().flush().unwrap();
 			}
 		});
 		s.spawn(|| {
@@ -58,6 +61,7 @@ pub fn diff(src: &PathBuf, dst: &PathBuf) -> Result<()> {
 				let percent = found as f64 / total as f64 * 100_f64;
 				clear_line();
 				print!("Compared {found} ({percent:04.1}%) entries...");
+				io::stdout().flush().unwrap();
 			}
 		});
 

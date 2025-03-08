@@ -1,3 +1,5 @@
+use std::io;
+use std::io::Write;
 use std::path::PathBuf;
 use std::thread;
 
@@ -21,6 +23,7 @@ pub fn stats(src: Option<&PathBuf>, index_file: Option<&PathBuf>) -> Result<()> 
 				let found = task.counter.value();
 				clear_line();
 				print!("Discovered {found} entries...");
+				io::stdout().flush().unwrap();
 			}
 		});
 

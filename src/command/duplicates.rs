@@ -1,3 +1,5 @@
+use std::io;
+use std::io::Write;
 use std::path::PathBuf;
 
 use anyhow::Context;
@@ -5,6 +7,7 @@ use anyhow::Result;
 
 use crate::command::task::Delayer;
 use crate::index;
+use crate::util::terminal::clear_line;
 
 pub fn duplicates(index_file: &PathBuf, match_name: bool, match_meta: bool) -> Result<()> {
 	let mut index = index::Index::open(index_file)
@@ -16,9 +19,11 @@ pub fn duplicates(index_file: &PathBuf, match_name: bool, match_meta: bool) -> R
 	let mut delayer = Delayer::new();
 	index.calculate_matches(
 		|x| {
+			current += 1;
 			if delayer.run() {
-				current += 1;
-				println!("Processed {current} of {total} entries...: {x}");
+				clear_line();
+				print!("Processed {current} of {total} entries...: {x}");
+				io::stdout().flush().unwrap();
 			}
 		},
 		match_name,
