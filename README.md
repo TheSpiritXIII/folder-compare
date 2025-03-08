@@ -1,8 +1,10 @@
 # folder-compare
 
-Cross-platform command-line utility to compare folder contents.
+Command-line utility to compare folder contents. Hypothetically, it is cross-platform but only tested on Windows.
 
 ## Usage
+
+### Basic
 
 First, clone this repository:
 
@@ -11,22 +13,16 @@ git clone https://github.com/TheSpiritXIII/folder-compare.git
 cd folder-compare
 ```
 
-To view stats about a path use the `stats` subcommand:
+This tool uses a file index to perform operations. First, you must build an index from a path:
 
 ```bash
-cargo run -- stats "some/path/here"
+cargo run -- index "path/to/a" --index-file="index.ron"
 ```
 
-To compare two directories use the `diff` subcommand:
+You can view stats from your new index file. Note, you will not see changes:
 
 ```bash
-cargo run -- diff "path/to/a" "path/to/b"
-```
-
-To create an index file, use the `index` subcommand. Note, other subcommands cannot read it yet:
-
-```bash
-cargo run -- index "path/to/a" "index.ron"
+cargo run -- stats --index-file="index.ron"
 ```
 
 For a full list of sub-commands and arguments, use `--help`:
@@ -34,6 +30,23 @@ For a full list of sub-commands and arguments, use `--help`:
 ```bash
 cargo run -- --help
 ```
+
+### Advanced
+
+If you make changes in the original folder, you can compare against it:
+
+```bash
+cargo run -- diff "path/to/a" --index-file="index.ron"
+```
+
+You can even find duplicate files:
+
+```bash
+cargo run -- duplicates --index-file="index.ron"
+```
+
+> [!WARNING]
+> Calculating duplicates is expensive. This tool calculates checksums for each potential duplicate. Avoid using this frequently on large folders, as this might cause wear on an SSD.
 
 ## Contributions
 
