@@ -48,6 +48,12 @@ cargo run -- duplicates --index-file="index.ron"
 > [!WARNING]
 > Calculating duplicates is expensive. This tool calculates checksums for each potential duplicate. Avoid using this frequently on large folders, as this might cause wear on an SSD.
 
+If you're willing to except a few missing duplicates for faster comparison, you can match names and modified times:
+
+```bash
+cargo run -- duplicates --index-file="index.ron" --match-names --match-modified
+```
+
 ## Contributions
 
 Please create an issue if you have any feature requests!
