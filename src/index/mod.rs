@@ -32,6 +32,10 @@ pub struct FileMetadata {
 pub struct Index {
 	files: Vec<FileMetadata>,
 	dirs: Vec<Metadata>,
+
+	#[serde(skip_serializing)]
+	#[serde(skip_deserializing)]
+	dirty: bool,
 }
 
 impl Index {
@@ -43,6 +47,7 @@ impl Index {
 		let mut index = Self {
 			files: Vec::new(),
 			dirs: Vec::new(),
+			dirty: false,
 		};
 		if path.as_ref().is_dir() {
 			index.add_dir(path.as_ref(), progress)?;
@@ -61,9 +66,11 @@ impl Index {
 		progress: &T,
 	) -> io::Result<()> {
 		if path.as_ref().is_dir() {
+			self.dirty = true;
 			self.remove_dir(path.as_ref());
 			self.add_dir(path, progress)
 		} else if path.as_ref().is_file() {
+			self.dirty = true;
 			self.remove_file(path.as_ref());
 			self.add_file(path)?;
 			progress.update(1);
@@ -136,6 +143,7 @@ impl Index {
 		for metadata in &mut self.files {
 			metadata.checksum.calculate(metadata.meta.path(), &mut buf)?;
 		}
+		self.dirty = true;
 		Ok(())
 	}
 
@@ -245,6 +253,7 @@ impl Index {
 
 			if file.checksum.is_empty() {
 				file.checksum.calculate(file.meta.path(), &mut buf)?;
+				self.dirty = true;
 			}
 		}
 
@@ -269,5 +278,9 @@ impl Index {
 			}
 		}
 		matches
+	}
+
+	pub fn dirty(&self) -> bool {
+		self.dirty
 	}
 }

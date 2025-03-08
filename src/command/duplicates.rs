@@ -38,6 +38,7 @@ pub fn duplicates(
 		match_meta,
 	)?;
 
+	println!("Gathering duplicates...");
 	let duplicates = index.duplicates();
 	if duplicates.is_empty() {
 		println!("No duplicates found");
@@ -47,5 +48,11 @@ pub fn duplicates(
 	for file_list in duplicates {
 		println!("Duplicate: {file_list:?}");
 	}
+
+	if index.dirty() {
+		println!("Updating index with checksums...");
+		index.save(index_file)?;
+	}
+
 	Ok(())
 }
