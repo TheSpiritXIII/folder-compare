@@ -64,8 +64,10 @@ struct StatsSubcommand {
 struct DiffSubcommand {
 	/// Source path to find differences from.
 	src: PathBuf,
-	/// Destination path to find differences to, or the current path if not provided.
-	dst: Option<PathBuf>,
+
+	/// Path to the index file to compare to.
+	#[clap(long)]
+	index_file: PathBuf,
 }
 
 #[derive(Args, Debug)]
@@ -111,8 +113,7 @@ fn main() -> Result<()> {
 			command::stats(path, subcommand.index_file.as_ref())
 		}
 		Command::Diff(subcommand) => {
-			let dst = subcommand.dst.unwrap_or(path);
-			command::diff(&subcommand.src, &dst)
+			command::diff(&subcommand.src, &subcommand.index_file)
 		}
 		Command::Duplicates(subcommand) => {
 			command::duplicates(

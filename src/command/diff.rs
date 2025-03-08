@@ -8,12 +8,13 @@ use anyhow::Result;
 
 use crate::command::task::condition_delay;
 use crate::command::task::Task;
-use crate::index;
+use crate::index::Diff;
+use crate::index::Index;
 use crate::util::terminal::clear_line;
 
-pub fn diff(src: &PathBuf, dst: &PathBuf) -> Result<()> {
-	let mut index_src = index::Index::new();
-	let mut index_dst = index::Index::new();
+pub fn diff(src: &PathBuf, index_file: &PathBuf) -> Result<()> {
+	let mut index_src = Index::new();
+	let mut index_dst = Index::new();
 
 	let task_src = Task::new();
 	let task_dst = Task::new();
@@ -24,9 +25,7 @@ pub fn diff(src: &PathBuf, dst: &PathBuf) -> Result<()> {
 				if condition_delay(|| task_src.done() && task_dst.done()) {
 					return;
 				}
-				let found_src = task_src.counter.value();
-				let found_dst = task_dst.counter.value();
-				let found = found_src + found_dst;
+				let found = task_src.counter.value();
 				clear_line();
 				print!("Discovered {found} entries...");
 				io::stdout().flush().unwrap();
@@ -38,7 +37,7 @@ pub fn diff(src: &PathBuf, dst: &PathBuf) -> Result<()> {
 			Ok(())
 		});
 
-		index_dst.add(dst, &task_dst.counter)?;
+		index_dst = Index::open(index_file)?;
 		task_dst.set_done();
 		src_thread.join().unwrap()?;
 		Ok(())
@@ -77,13 +76,13 @@ pub fn diff(src: &PathBuf, dst: &PathBuf) -> Result<()> {
 
 	for diff in &diff_list {
 		match diff {
-			index::Diff::Added(name) => {
+			Diff::Added(name) => {
 				println!("+ {name}");
 			}
-			index::Diff::Removed(name) => {
+			Diff::Removed(name) => {
 				println!("- {name}");
 			}
-			index::Diff::Changed(name) => {
+			Diff::Changed(name) => {
 				println!("Δ {name}");
 			}
 		}
