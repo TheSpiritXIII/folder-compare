@@ -95,7 +95,7 @@ impl Index {
 
 		let mut count = 0;
 		while let Some(current_path) = queue.pop_front() {
-			let metadata = Metadata::from_path(&path)?;
+			let metadata = Metadata::from_path(&current_path)?;
 			self.dirs.push(metadata);
 
 			count += 1;
@@ -130,9 +130,9 @@ impl Index {
 	// Removes the directory in the given path.
 	fn remove_dir(&mut self, path: impl AsRef<std::path::Path>) {
 		let path_str = metadata::normalized_path(path.as_ref());
-		// TODO: This logic is wrong.
+		// TODO: This logic might be wrong.
 		self.files.retain(|entry| !entry.meta.path().starts_with(&path_str));
-		self.dirs.retain(|entry| entry.path() != path_str);
+		self.dirs.retain(|entry| !entry.path().starts_with(&path_str));
 	}
 
 	// Removes the file in the given path.
