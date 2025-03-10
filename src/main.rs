@@ -112,9 +112,7 @@ fn main() -> Result<()> {
 			};
 			command::stats(path, subcommand.index_file.as_ref())
 		}
-		Command::Diff(subcommand) => {
-			command::diff(&subcommand.src, &subcommand.index_file)
-		}
+		Command::Diff(subcommand) => command::diff(&subcommand.src, &subcommand.index_file),
 		Command::Duplicates(subcommand) => {
 			command::duplicates(
 				&subcommand.index_file,

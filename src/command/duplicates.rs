@@ -26,23 +26,23 @@ pub fn duplicates(
 	let mut current = 0;
 	let mut delayer = Delayer::new();
 	let mut last_path = String::new();
-	index.calculate_matches(
-		|path| {
-			last_path = path.to_string();
-			current += 1;
-			if delayer.run() {
-				clear_line();
-				print!("Processed {current} of {total} entries...: {path}");
-				io::stdout().flush().unwrap();
-			}
-		},
-		filter,
-		match_name,
-		match_created,
-		match_modified,
-	).with_context(|| {
-		format!("Comparison failed during file: {}", last_path)
-	})?;
+	index
+		.calculate_matches(
+			|path| {
+				last_path = path.to_string();
+				current += 1;
+				if delayer.run() {
+					clear_line();
+					print!("Processed {current} of {total} entries...: {path}");
+					io::stdout().flush().unwrap();
+				}
+			},
+			filter,
+			match_name,
+			match_created,
+			match_modified,
+		)
+		.with_context(|| format!("Comparison failed during file: {last_path}"))?;
 
 	println!("Gathering duplicates...");
 	let duplicates = index.duplicates(filter);
