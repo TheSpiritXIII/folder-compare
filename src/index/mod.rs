@@ -93,6 +93,8 @@ impl Index {
 		let mut queue = VecDeque::new();
 		queue.push_back(path.as_ref().to_path_buf());
 
+		let mut is_root = path.as_ref().parent().is_none();
+
 		let mut count = 0;
 		while let Some(current_path) = queue.pop_front() {
 			let metadata = Metadata::from_path(&current_path)?;
@@ -104,6 +106,14 @@ impl Index {
 				let entry = entry?;
 				let path = entry.path();
 				if path.is_dir() {
+					if is_root {
+						if let Some(name) = path.file_name() {
+							if name == "$RECYCLE.BIN" || name == "System Volume Information" {
+								continue;
+							}
+						}
+					}
+
 					queue.push_back(path);
 				} else {
 					self.add_file(path)?;
@@ -111,6 +121,7 @@ impl Index {
 					progress.update(count);
 				}
 			}
+			is_root = false;
 		}
 
 		self.normalize();
