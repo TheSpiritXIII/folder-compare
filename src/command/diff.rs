@@ -12,7 +12,7 @@ use crate::command::task::Task;
 use crate::index::Diff;
 use crate::index::Index;
 use crate::progress::ProgressCounter;
-use crate::util::percentage::percentage;
+use crate::util::display::percentage;
 use crate::util::terminal::clear_line;
 
 pub fn diff(src: &PathBuf, index_file: &PathBuf) -> Result<()> {

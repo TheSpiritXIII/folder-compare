@@ -9,7 +9,7 @@ use regex::Regex;
 
 use crate::command::task::Delayer;
 use crate::index;
-use crate::util::percentage::percentage;
+use crate::util::display::percentage;
 use crate::util::terminal::clear_line;
 
 pub fn duplicates(

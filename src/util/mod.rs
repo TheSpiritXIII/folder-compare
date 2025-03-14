@@ -1,2 +1,2 @@
-pub mod percentage;
+pub mod display;
 pub mod terminal;
