@@ -1,5 +1,7 @@
 mod checksum;
 mod metadata;
+#[cfg(test)]
+mod test;
 
 use std::collections::HashMap;
 use std::collections::VecDeque;
@@ -31,8 +33,8 @@ pub struct FileMetadata {
 
 #[derive(Serialize, Deserialize)]
 pub struct Index {
-	files: Vec<FileMetadata>,
-	dirs: Vec<Metadata>,
+	pub(crate) files: Vec<FileMetadata>,
+	pub(crate) dirs: Vec<Metadata>,
 
 	#[serde(skip_serializing)]
 	#[serde(skip_deserializing)]
@@ -141,10 +143,9 @@ impl Index {
 
 	// Removes the directory in the given path.
 	fn remove_dir(&mut self, path: impl AsRef<std::path::Path>) {
-		if let Some(index) = self.find_dir(&path) {
-			self.files.remove(index);
-		}
-		if let Some((start, end)) = self.find_dir_files(&path) {
+		if let Some((start, end)) = self.find_dirs(&path) {
+			self.dirs.drain(start..end);
+			let (start, end) = self.find_dir_files(&path);
 			self.files.drain(start..end);
 		}
 	}
@@ -156,9 +157,21 @@ impl Index {
 		}
 	}
 
-	fn find_dir(&mut self, path: impl AsRef<std::path::Path>) -> Option<usize> {
-		let p = normalized_path(path);
-		self.dirs.binary_search_by(|entry| entry.path().cmp(&p)).ok()
+	fn find_dirs(&mut self, path: impl AsRef<std::path::Path>) -> Option<(usize, usize)> {
+		let mut p = normalized_path(path);
+		if p.is_empty() {
+			return Some((0, self.dirs.len()));
+		}
+		let start = self.dirs.binary_search_by(|entry| entry.path().cmp(&p)).ok()?;
+		let mut end = start + 1;
+		p.push('/');
+		for entry in &self.dirs[end..] {
+			if !entry.path().starts_with(&p) {
+				break;
+			}
+			end += 1;
+		}
+		Some((start, end))
 	}
 
 	fn find_file(&mut self, path: impl AsRef<std::path::Path>) -> Option<usize> {
@@ -166,13 +179,16 @@ impl Index {
 		self.files.binary_search_by(|entry| entry.meta.path().cmp(&p)).ok()
 	}
 
-	fn find_dir_files(&mut self, path: impl AsRef<std::path::Path>) -> Option<(usize, usize)> {
+	fn find_dir_files(&mut self, path: impl AsRef<std::path::Path>) -> (usize, usize) {
 		let mut p = normalized_path(path);
-		if !p.ends_with('/') {
-			p.push('/');
+		if p.is_empty() {
+			return (0, self.files.len());
 		}
+		p.push('/');
 
-		let start = self.files.binary_search_by(|entry| entry.meta.path().cmp(&p)).ok()?;
+		let start = match self.files.binary_search_by(|entry| entry.meta.path().cmp(&p)) {
+			Ok(index) | Err(index) => index,
+		};
 		let mut end = start;
 		for entry in &self.files[start..] {
 			if !entry.meta.path().starts_with(&p) {
@@ -180,7 +196,7 @@ impl Index {
 			}
 			end += 1;
 		}
-		Some((start, end))
+		(start, end)
 	}
 
 	pub fn calculate_all(&mut self) -> io::Result<()> {
