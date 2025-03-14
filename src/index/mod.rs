@@ -67,17 +67,6 @@ impl Index {
 		Err(io::Error::from(io::ErrorKind::Unsupported))
 	}
 
-	pub fn from_path_legacy<T: ProgressCounter>(
-		path: impl AsRef<std::path::Path>,
-		progress: &T,
-	) -> io::Result<Self> {
-		let mut count = 0;
-		Self::from_path(path.as_ref(), |_| {
-			progress.update(count);
-			count += 1;
-		})
-	}
-
 	pub fn add(
 		&mut self,
 		path: impl AsRef<std::path::Path>,
