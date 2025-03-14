@@ -7,10 +7,10 @@ use anyhow::Context;
 use anyhow::Result;
 use regex::Regex;
 
-use crate::command::task::Delayer;
 use crate::index;
 use crate::util::display::percentage;
 use crate::util::terminal::clear_line;
+use crate::util::timer::CountdownTimer;
 
 pub fn duplicates(
 	index_file: &PathBuf,
@@ -26,14 +26,14 @@ pub fn duplicates(
 	println!("Comparing files...");
 	let total = index.file_count();
 	let mut current = 0usize;
-	let mut delayer = Delayer::new(Duration::from_secs(1));
+	let mut countdown = CountdownTimer::new(Duration::from_secs(1));
 	let mut last_path = String::new();
 	index
 		.calculate_matches(
 			|path| {
 				last_path = path.to_string();
 				current += 1;
-				if delayer.run() {
+				if countdown.passed() {
 					clear_line();
 					let percent = percentage(current, total);
 					print!("Processed {current} of {total} entries ({percent}%)...: {path}");

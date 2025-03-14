@@ -1,12 +1,12 @@
 use std::time::Duration;
 use std::time::SystemTime;
 
-pub struct Delayer {
+pub struct CountdownTimer {
 	start: SystemTime,
 	duration: Duration,
 }
 
-impl Delayer {
+impl CountdownTimer {
 	pub fn new(duration: Duration) -> Self {
 		Self {
 			start: SystemTime::now(),
@@ -14,7 +14,7 @@ impl Delayer {
 		}
 	}
 
-	pub fn run(&mut self) -> bool {
+	pub fn passed(&mut self) -> bool {
 		let Ok(elapsed) = self.start.elapsed() else {
 			self.start = SystemTime::now();
 			return true;

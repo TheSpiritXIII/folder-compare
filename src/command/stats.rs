@@ -7,17 +7,17 @@ use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 
-use crate::command::task::Delayer;
 use crate::index::Index;
 use crate::util::terminal::clear_line;
+use crate::util::timer::CountdownTimer;
 
 pub fn stats(src: Option<&PathBuf>, index_file: Option<&PathBuf>) -> Result<()> {
 	let mut current = 0usize;
-	let mut delayer = Delayer::new(Duration::from_secs(1));
+	let mut countdown = CountdownTimer::new(Duration::from_secs(1));
 	let mut last_path = String::new();
 	let update_fn = |path: &str| {
 		last_path = path.to_string();
-		if delayer.run() {
+		if countdown.passed() {
 			clear_line();
 			print!("Discovered {current} entries: {path}");
 			io::stdout().flush().unwrap();

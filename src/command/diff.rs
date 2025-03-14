@@ -7,11 +7,11 @@ use std::time::Duration;
 use anyhow::Context;
 use anyhow::Result;
 
-use crate::command::task::Delayer;
 use crate::index::Diff;
 use crate::index::Index;
 use crate::util::display::percentage;
 use crate::util::terminal::clear_line;
+use crate::util::timer::CountdownTimer;
 
 pub fn diff(src: &PathBuf, index_file: &PathBuf) -> Result<()> {
 	let mut index_src = Index::new();
@@ -20,11 +20,11 @@ pub fn diff(src: &PathBuf, index_file: &PathBuf) -> Result<()> {
 	thread::scope(|s| -> io::Result<()> {
 		let src_thread = s.spawn(|| -> io::Result<()> {
 			let mut current = 0usize;
-			let mut delayer = Delayer::new(Duration::from_secs(1));
+			let mut countdown = CountdownTimer::new(Duration::from_secs(1));
 			let mut last_path = String::new();
 			index_src.add(std::path::absolute(src)?, |path| {
 				last_path = path.to_string();
-				if delayer.run() {
+				if countdown.passed() {
 					clear_line();
 					print!("Discovered {current} entries: {path}");
 					io::stdout().flush().unwrap();
@@ -51,7 +51,7 @@ pub fn diff(src: &PathBuf, index_file: &PathBuf) -> Result<()> {
 	println!("Found {total} total entries!");
 
 	let mut current = 1usize;
-	let mut delayer = Delayer::new(Duration::from_secs(1));
+	let mut countdown = CountdownTimer::new(Duration::from_secs(1));
 	let mut last_rhs = String::new();
 	let mut last_lhs = String::new();
 	let diff_list = index_src
@@ -59,7 +59,7 @@ pub fn diff(src: &PathBuf, index_file: &PathBuf) -> Result<()> {
 			current += 1;
 			last_rhs = rhs.to_string();
 			last_lhs = lhs.to_string();
-			if delayer.run() {
+			if countdown.passed() {
 				clear_line();
 				let percent = percentage(current, total);
 				print!("Comparing {rhs} vs {lhs} ({percent}))...");
