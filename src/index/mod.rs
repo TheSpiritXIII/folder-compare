@@ -70,21 +70,21 @@ impl Index {
 		path: impl AsRef<std::path::Path>,
 		mut notifier: impl FnMut(&str),
 	) -> io::Result<()> {
-		// TODO: This is wrong. Need to call normalize().
 		if path.as_ref().is_dir() {
 			self.dirty = true;
 			self.remove_dir(path.as_ref());
-			self.add_dir(path, notifier)
+			self.add_dir(path, notifier)?;
 		} else if path.as_ref().is_file() {
 			self.dirty = true;
 			self.remove_file(path.as_ref());
 			let metadata = self.add_file(path)?;
 			notifier(metadata.path());
-			Ok(())
 		} else {
 			// TODO: io::Result doesn't make sense for this.
-			Err(io::Error::from(io::ErrorKind::Unsupported))
+			return Err(io::Error::from(io::ErrorKind::Unsupported));
 		}
+		self.normalize();
+		Ok(())
 	}
 
 	fn add_dir(
@@ -123,7 +123,6 @@ impl Index {
 			is_root = false;
 		}
 
-		self.normalize();
 		Ok(())
 	}
 
