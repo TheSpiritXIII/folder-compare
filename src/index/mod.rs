@@ -9,6 +9,7 @@ use std::path::Path;
 use std::time::SystemTime;
 
 use checksum::Checksum;
+use metadata::normalized_path;
 use metadata::Metadata;
 use regex::Regex;
 use serde::Deserialize;
@@ -148,9 +149,14 @@ impl Index {
 
 	// Removes the file in the given path.
 	fn remove_file(&mut self, path: impl AsRef<std::path::Path>) {
-		let path_str = metadata::normalized_path(path.as_ref());
-		// TODO: Optimize this with binary search.
-		self.files.retain(|entry| entry.meta.path() != path_str);
+		if let Some(index) = self.find_file(path) {
+			self.files.remove(index);
+		}
+	}
+
+	fn find_file(&mut self, path: impl AsRef<std::path::Path>) -> Option<usize> {
+		let p = normalized_path(path);
+		self.files.binary_search_by(|entry| entry.meta.path().cmp(&p)).ok()
 	}
 
 	pub fn calculate_all(&mut self) -> io::Result<()> {
