@@ -60,12 +60,12 @@ pub fn diff(src: &PathBuf, index_file: &PathBuf) -> Result<()> {
 			last_rhs = rhs.to_string();
 			last_lhs = lhs.to_string();
 			if countdown.passed() {
-				clear_line();
 				let percent = percentage(current, total);
+				clear_line();
 				print!("Comparing {rhs} vs {lhs} ({percent}))...");
 				io::stdout().flush().unwrap();
 			}
-		})
+		}, true)
 		.with_context(|| format!("Comparison failed during {last_rhs} and {last_lhs}"))?;
 	if diff_list.is_empty() {
 		println!("No changes");

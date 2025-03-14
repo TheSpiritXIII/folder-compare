@@ -358,6 +358,7 @@ impl Index {
 		&mut self,
 		other: &mut Index,
 		mut notifier: impl FnMut(&str, &str),
+		calculate_checksums: bool,
 	) -> io::Result<Vec<Diff>> {
 		let mut buf = Vec::with_capacity(BUF_SIZE);
 		let mut diff_list = Vec::new();
@@ -392,17 +393,23 @@ impl Index {
 				}
 				std::cmp::Ordering::Equal => {
 					if file_self.size == file_other.size {
-						if file_self.checksum.is_empty() {
-							file_self.checksum.calculate(file_self.meta.path(), &mut buf)?;
-							self.dirty = true;
-						}
-						if file_other.checksum.is_empty() {
-							file_other.checksum.calculate(file_self.meta.path(), &mut buf)?;
-							other.dirty = true;
-						}
+						if !calculate_checksums {
+							if file_self.meta.modified_time() != file_other.meta.modified_time() {
+								diff_list.push(Diff::Changed(file_self.meta.path().to_string()));
+							}
+						} else {
+							if file_self.checksum.is_empty() {
+								file_self.checksum.calculate(file_self.meta.path(), &mut buf)?;
+								self.dirty = true;
+							}
+							if file_other.checksum.is_empty() {
+								file_other.checksum.calculate(file_self.meta.path(), &mut buf)?;
+								other.dirty = true;
+							}
 
-						if file_self.checksum != file_other.checksum {
-							diff_list.push(Diff::Changed(file_self.meta.path().to_string()));
+							if file_self.checksum != file_other.checksum {
+								diff_list.push(Diff::Changed(file_self.meta.path().to_string()));
+							}
 						}
 					} else {
 						diff_list.push(Diff::Changed(file_self.meta.path().to_string()));
