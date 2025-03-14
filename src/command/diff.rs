@@ -8,10 +8,8 @@ use anyhow::Context;
 use anyhow::Result;
 
 use crate::command::task::Delayer;
-use crate::command::task::Task;
 use crate::index::Diff;
 use crate::index::Index;
-use crate::progress::ProgressCounter;
 use crate::util::display::percentage;
 use crate::util::terminal::clear_line;
 
@@ -19,38 +17,31 @@ pub fn diff(src: &PathBuf, index_file: &PathBuf) -> Result<()> {
 	let mut index_src = Index::new();
 	let mut index_dst = Index::new();
 
-	let task_src = Task::new();
-	let task_dst = Task::new();
-
 	thread::scope(|s| -> io::Result<()> {
-		s.spawn(|| {
-			let mut delayer = Delayer::new(Duration::from_secs(1));
-			loop {
-				if task_src.done() && task_dst.done() {
-					return;
-				}
-				if delayer.run() {
-					let found = task_src.counter.value();
-					clear_line();
-					print!("Discovered {found} entries...");
-					io::stdout().flush().unwrap();
-				}
-				thread::yield_now();
-			}
-		});
 		let src_thread = s.spawn(|| -> io::Result<()> {
 			let mut current = 0usize;
-			index_src.add(std::path::absolute(src)?, |_| {
-				task_src.counter.update(current);
+			let mut delayer = Delayer::new(Duration::from_secs(1));
+			let mut last_path = String::new();
+			index_src.add(std::path::absolute(src)?, |path| {
+				last_path = path.to_string();
+				if delayer.run() {
+					clear_line();
+					print!("Discovered {current} entries: {path}");
+					io::stdout().flush().unwrap();
+				}
 				current += 1;
 			})?;
-			task_src.set_done();
+			clear_line();
+			print!("Loading index file...");
+			io::stdout().flush().unwrap();
 			Ok(())
 		});
 
 		index_dst = Index::open(index_file)?;
-		task_dst.set_done();
 		src_thread.join().unwrap()?;
+
+		clear_line();
+		io::stdout().flush().unwrap();
 		Ok(())
 	})?;
 

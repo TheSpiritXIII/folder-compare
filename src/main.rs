@@ -2,7 +2,6 @@
 
 mod command;
 mod index;
-mod progress;
 mod util;
 
 use std::env;
