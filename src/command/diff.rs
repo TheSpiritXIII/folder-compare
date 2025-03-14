@@ -1,15 +1,18 @@
 use std::io;
 use std::io::Write;
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::thread;
+use std::time::Duration;
 
+use anyhow::Context;
 use anyhow::Result;
 
 use crate::command::task::condition_delay;
+use crate::command::task::Delayer;
 use crate::command::task::Task;
 use crate::index::Diff;
 use crate::index::Index;
+use crate::util::percentage::percentage;
 use crate::util::terminal::clear_line;
 
 pub fn diff(src: &PathBuf, index_file: &PathBuf) -> Result<()> {
@@ -48,31 +51,26 @@ pub fn diff(src: &PathBuf, index_file: &PathBuf) -> Result<()> {
 	let total = count_src + count_dst;
 	println!("Found {total} total entries!");
 
-	let task_diff = Arc::new(Task::new());
-	let diff_list = thread::scope(|s| -> io::Result<_> {
-		s.spawn(|| {
-			loop {
-				if condition_delay(|| task_diff.done()) {
-					return;
-				}
-				let found = task_diff.counter.value();
-				#[allow(clippy::cast_precision_loss)]
-				let percent = found as f64 / total as f64 * 100_f64;
+	let mut current = 1usize;
+	let mut delayer = Delayer::new(Duration::from_secs(1));
+	let mut last_rhs = String::new();
+	let mut last_lhs = String::new();
+	let diff_list = index_src
+		.diff(&mut index_dst, |lhs, rhs| {
+			current += 1;
+			last_rhs = rhs.to_string();
+			last_lhs = lhs.to_string();
+			if delayer.run() {
 				clear_line();
-				print!("Compared {found} ({percent:04.1}%) entries...");
+				let percent = percentage(current, total);
+				print!("Comparing {rhs} vs {lhs} ({percent}))...");
 				io::stdout().flush().unwrap();
 			}
-		});
-
-		let diff_list = index_src.diff(&mut index_dst, |_, _| {
-			task_diff.counter.inc();
-		})?;
-		if diff_list.is_empty() {
-			println!("No changes");
-		}
-		task_diff.set_done();
-		Ok(diff_list)
-	})?;
+		})
+		.with_context(|| format!("Comparison failed during {last_rhs} and {last_lhs}"))?;
+	if diff_list.is_empty() {
+		println!("No changes");
+	}
 
 	for diff in &diff_list {
 		match diff {
