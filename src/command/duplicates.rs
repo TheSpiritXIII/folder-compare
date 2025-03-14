@@ -1,6 +1,7 @@
 use std::io;
 use std::io::Write;
 use std::path::PathBuf;
+use std::time::Duration;
 
 use anyhow::Context;
 use anyhow::Result;
@@ -24,7 +25,7 @@ pub fn duplicates(
 	println!("Comparing files...");
 	let total = index.file_count();
 	let mut current = 0;
-	let mut delayer = Delayer::new();
+	let mut delayer = Delayer::new(Duration::from_secs(1));
 	let mut last_path = String::new();
 	index
 		.calculate_matches(
