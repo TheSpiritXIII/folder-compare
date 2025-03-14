@@ -9,6 +9,7 @@ use regex::Regex;
 
 use crate::command::task::Delayer;
 use crate::index;
+use crate::util::percentage::percentage;
 use crate::util::terminal::clear_line;
 
 pub fn duplicates(
@@ -24,7 +25,7 @@ pub fn duplicates(
 
 	println!("Comparing files...");
 	let total = index.file_count();
-	let mut current = 0;
+	let mut current = 0usize;
 	let mut delayer = Delayer::new(Duration::from_secs(1));
 	let mut last_path = String::new();
 	index
@@ -34,7 +35,8 @@ pub fn duplicates(
 				current += 1;
 				if delayer.run() {
 					clear_line();
-					print!("Processed {current} of {total} entries...: {path}");
+					let percent = percentage(current, total);
+					print!("Processed {current} of {total} entries ({percent}%)...: {path}");
 					io::stdout().flush().unwrap();
 				}
 			},
