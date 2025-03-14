@@ -358,7 +358,9 @@ impl Index {
 		&mut self,
 		other: &mut Index,
 		mut notifier: impl FnMut(&str, &str),
-		calculate_checksums: bool,
+		match_name: bool,
+		match_created: bool,
+		match_modified: bool,
 	) -> io::Result<Vec<Diff>> {
 		let mut buf = Vec::with_capacity(BUF_SIZE);
 		let mut diff_list = Vec::new();
@@ -392,30 +394,40 @@ impl Index {
 					file_index_other += 1;
 				}
 				std::cmp::Ordering::Equal => {
-					if file_self.size == file_other.size {
-						if !calculate_checksums {
-							if file_self.meta.modified_time() != file_other.meta.modified_time() {
-								diff_list.push(Diff::Changed(file_self.meta.path().to_string()));
-							}
-						} else {
-							if file_self.checksum.is_empty() {
-								file_self.checksum.calculate(file_self.meta.path(), &mut buf)?;
-								self.dirty = true;
-							}
-							if file_other.checksum.is_empty() {
-								file_other.checksum.calculate(file_self.meta.path(), &mut buf)?;
-								other.dirty = true;
-							}
-
-							if file_self.checksum != file_other.checksum {
-								diff_list.push(Diff::Changed(file_self.meta.path().to_string()));
-							}
-						}
-					} else {
-						diff_list.push(Diff::Changed(file_self.meta.path().to_string()));
-					}
 					file_index_self += 1;
 					file_index_other += 1;
+
+					if file_self.size != file_other.size {
+						diff_list.push(Diff::Changed(file_self.meta.path().to_string()));
+						continue;
+					}
+
+					if match_name {
+						continue;
+					}
+					if match_created
+						&& file_self.meta.created_time() == file_other.meta.created_time()
+					{
+						continue;
+					}
+					if match_modified
+						&& file_self.meta.modified_time() == file_other.meta.modified_time()
+					{
+						continue;
+					}
+
+					if file_self.checksum.is_empty() {
+						file_self.checksum.calculate(file_self.meta.path(), &mut buf)?;
+						self.dirty = true;
+					}
+					if file_other.checksum.is_empty() {
+						file_other.checksum.calculate(file_self.meta.path(), &mut buf)?;
+						other.dirty = true;
+					}
+
+					if file_self.checksum != file_other.checksum {
+						diff_list.push(Diff::Changed(file_self.meta.path().to_string()));
+					}
 				}
 			}
 		}

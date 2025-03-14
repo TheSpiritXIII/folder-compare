@@ -13,7 +13,13 @@ use crate::util::display::percentage;
 use crate::util::terminal::clear_line;
 use crate::util::timer::CountdownTimer;
 
-pub fn diff(src: &PathBuf, index_file: &PathBuf) -> Result<()> {
+pub fn diff(
+	src: &PathBuf,
+	index_file: &PathBuf,
+	match_name: bool,
+	match_created: bool,
+	match_modified: bool,
+) -> Result<()> {
 	let mut index_src = Index::new();
 	let mut index_dst = Index::new();
 
@@ -55,17 +61,23 @@ pub fn diff(src: &PathBuf, index_file: &PathBuf) -> Result<()> {
 	let mut last_rhs = String::new();
 	let mut last_lhs = String::new();
 	let diff_list = index_src
-		.diff(&mut index_dst, |lhs, rhs| {
-			current += 1;
-			last_rhs = rhs.to_string();
-			last_lhs = lhs.to_string();
-			if countdown.passed() {
-				let percent = percentage(current, total);
-				clear_line();
-				print!("Comparing {rhs} vs {lhs} ({percent}))...");
-				io::stdout().flush().unwrap();
-			}
-		}, true)
+		.diff(
+			&mut index_dst,
+			|lhs, rhs| {
+				current += 1;
+				last_rhs = rhs.to_string();
+				last_lhs = lhs.to_string();
+				if countdown.passed() {
+					let percent = percentage(current, total);
+					clear_line();
+					print!("Comparing {rhs} vs {lhs} ({percent}))...");
+					io::stdout().flush().unwrap();
+				}
+			},
+			match_name,
+			match_created,
+			match_modified,
+		)
 		.with_context(|| format!("Comparison failed during {last_rhs} and {last_lhs}"))?;
 	if diff_list.is_empty() {
 		println!("No changes");

@@ -67,6 +67,9 @@ struct DiffSubcommand {
 	/// Path to the index file to compare to.
 	#[clap(long)]
 	index_file: PathBuf,
+
+	#[command(flatten)]
+	matches: Matches,
 }
 
 #[derive(Args, Debug)]
@@ -79,21 +82,24 @@ struct Duplicates {
 	#[clap(long)]
 	filter: Option<Regex>,
 
-	/// If set, only matches duplicates whose names match causing potential false negatives but a
-	/// faster evaluation.
-	#[clap(long)]
-	match_name: bool,
+	#[command(flatten)]
+	matches: Matches,
+}
 
-	/// If set, only matches duplicates whose created times match causing potential false negatives
-	/// but a faster evaluation. Note: On Windows, created times are updated when duplicating
-	/// files.
-	#[clap(long)]
-	match_created: bool,
+#[derive(Args, Debug)]
+struct Matches {
+	/// If set, matches names, causing potential false negatives but a faster evaluation.
+	#[clap(long = "match-name")]
+	name: bool,
 
-	/// If set, only matches duplicates whose modified times match causing potential false
-	/// negatives but a faster evaluation.
-	#[clap(long)]
-	match_modified: bool,
+	/// If set, matches created times, causing potential false negatives but a faster evaluation.
+	/// Note: On Windows, created times are updated when duplicating files.
+	#[clap(long = "match-created")]
+	created: bool,
+
+	/// If set, matches modified times, causing potential false negatives but a faster evaluation.
+	#[clap(long = "match-modified")]
+	modified: bool,
 }
 
 fn main() -> Result<()> {
@@ -111,14 +117,22 @@ fn main() -> Result<()> {
 			};
 			command::stats(path, subcommand.index_file.as_ref())
 		}
-		Command::Diff(subcommand) => command::diff(&subcommand.src, &subcommand.index_file),
+		Command::Diff(subcommand) => {
+			command::diff(
+				&subcommand.src,
+				&subcommand.index_file,
+				subcommand.matches.name,
+				subcommand.matches.created,
+				subcommand.matches.modified,
+			)
+		}
 		Command::Duplicates(subcommand) => {
 			command::duplicates(
 				&subcommand.index_file,
 				subcommand.filter.as_ref(),
-				subcommand.match_name,
-				subcommand.match_created,
-				subcommand.match_modified,
+				subcommand.matches.name,
+				subcommand.matches.created,
+				subcommand.matches.modified,
 			)
 		}
 	}
