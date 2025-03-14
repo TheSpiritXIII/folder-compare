@@ -24,7 +24,7 @@ impl Delayer {
 			return true;
 		};
 		if elapsed >= self.duration {
-			self.start.checked_add(Duration::from_secs(1));
+			self.start = SystemTime::now();
 			return true;
 		}
 		false

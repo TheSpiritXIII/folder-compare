@@ -18,7 +18,7 @@ pub fn index(src: &PathBuf, index_file: &PathBuf, sha_512: bool) -> Result<()> {
 		last_path = path.to_string();
 		if delayer.run() {
 			clear_line();
-			print!("Discovered {current} entries...");
+			print!("Discovered {current} entries: {path}");
 			io::stdout().flush().unwrap();
 		}
 		current += 1;
