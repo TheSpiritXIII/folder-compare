@@ -7,11 +7,11 @@ use std::time::Duration;
 use anyhow::Context;
 use anyhow::Result;
 
-use crate::command::task::condition_delay;
 use crate::command::task::Delayer;
 use crate::command::task::Task;
 use crate::index::Diff;
 use crate::index::Index;
+use crate::progress::ProgressCounter;
 use crate::util::percentage::percentage;
 use crate::util::terminal::clear_line;
 
@@ -24,18 +24,26 @@ pub fn diff(src: &PathBuf, index_file: &PathBuf) -> Result<()> {
 
 	thread::scope(|s| -> io::Result<()> {
 		s.spawn(|| {
+			let mut delayer = Delayer::new(Duration::from_secs(1));
 			loop {
-				if condition_delay(|| task_src.done() && task_dst.done()) {
+				if task_src.done() && task_dst.done() {
 					return;
 				}
-				let found = task_src.counter.value();
-				clear_line();
-				print!("Discovered {found} entries...");
-				io::stdout().flush().unwrap();
+				if delayer.run() {
+					let found = task_src.counter.value();
+					clear_line();
+					print!("Discovered {found} entries...");
+					io::stdout().flush().unwrap();
+				}
+				thread::yield_now();
 			}
 		});
 		let src_thread = s.spawn(|| -> io::Result<()> {
-			index_src.add_legacy(std::path::absolute(src)?, &task_src.counter)?;
+			let mut current = 0usize;
+			index_src.add(std::path::absolute(src)?, |_| {
+				task_src.counter.update(current);
+				current += 1;
+			})?;
 			task_src.set_done();
 			Ok(())
 		});

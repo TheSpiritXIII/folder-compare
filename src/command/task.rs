@@ -1,5 +1,4 @@
 use std::sync::atomic;
-use std::thread;
 use std::time::Duration;
 use std::time::SystemTime;
 
@@ -29,21 +28,6 @@ impl Delayer {
 		}
 		false
 	}
-}
-
-// Runs the given condition method with a delay.
-pub fn condition_delay(condition_fn: impl Fn() -> bool) -> bool {
-	let now = SystemTime::now();
-	loop {
-		if condition_fn() {
-			return true;
-		}
-		if now.elapsed().unwrap().as_secs() >= 1 {
-			break;
-		}
-		thread::yield_now();
-	}
-	false
 }
 
 pub struct Task {

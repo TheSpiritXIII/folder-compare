@@ -17,8 +17,6 @@ use regex::Regex;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::progress::ProgressCounter;
-
 // Size of buffer to compare files, optimized for an 8 KiB average file-size.
 // Dinneen, Jesse & Nguyen, Ba. (2021). How Big Are Peoples' Computer Files? File Size Distributions
 // Among User-managed Collections.
@@ -87,18 +85,6 @@ impl Index {
 			// TODO: io::Result doesn't make sense for this.
 			Err(io::Error::from(io::ErrorKind::Unsupported))
 		}
-	}
-
-	pub fn add_legacy<T: ProgressCounter>(
-		&mut self,
-		path: impl AsRef<std::path::Path>,
-		progress: &T,
-	) -> io::Result<()> {
-		let mut count = 0usize;
-		self.add(path, |_| {
-			progress.update(count);
-			count += 1;
-		})
 	}
 
 	fn add_dir(
