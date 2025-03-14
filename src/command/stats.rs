@@ -31,11 +31,11 @@ pub fn stats(src: Option<&PathBuf>, index_file: Option<&PathBuf>) -> Result<()> 
 			let mut index = Index::open(path)
 				.with_context(|| format!("Unable to open index: {}", path.display()))?;
 			if let Some(path) = src {
-				index.add(std::path::absolute(path)?, &task.counter)?;
+				index.add_legacy(std::path::absolute(path)?, &task.counter)?;
 			}
 			index
 		} else if let Some(path) = src {
-			Index::from_path(std::path::absolute(path)?, &task.counter)?
+			Index::from_path_legacy(std::path::absolute(path)?, &task.counter)?
 		} else {
 			bail!("Expected source or index-file");
 		};

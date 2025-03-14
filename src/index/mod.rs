@@ -51,13 +51,13 @@ impl Index {
 	}
 
 	// Recursively finds all files in the given directory and adds them to the index.
-	pub fn from_path<T: ProgressCounter>(
+	pub fn from_path(
 		path: impl AsRef<std::path::Path>,
-		progress: &T,
+		notifier: impl FnMut(&str),
 	) -> io::Result<Self> {
 		let mut index = Self::new();
 		if path.as_ref().is_dir() {
-			index.add_dir(path.as_ref(), progress)?;
+			index.add_dir(path.as_ref(), notifier)?;
 			return Ok(index);
 		} else if path.as_ref().is_file() {
 			index.add_file(path)?;
@@ -67,20 +67,32 @@ impl Index {
 		Err(io::Error::from(io::ErrorKind::Unsupported))
 	}
 
-	pub fn add<T: ProgressCounter>(
-		&mut self,
+	pub fn from_path_legacy<T: ProgressCounter>(
 		path: impl AsRef<std::path::Path>,
 		progress: &T,
+	) -> io::Result<Self> {
+		let mut count = 0;
+		Self::from_path(path.as_ref(), |_| {
+			progress.update(count);
+			count += 1;
+		})
+	}
+
+	pub fn add(
+		&mut self,
+		path: impl AsRef<std::path::Path>,
+		mut notifier: impl FnMut(&str),
 	) -> io::Result<()> {
+		// TODO: This is wrong. Need to call normalize().
 		if path.as_ref().is_dir() {
 			self.dirty = true;
 			self.remove_dir(path.as_ref());
-			self.add_dir(path, progress)
+			self.add_dir(path, notifier)
 		} else if path.as_ref().is_file() {
 			self.dirty = true;
 			self.remove_file(path.as_ref());
-			self.add_file(path)?;
-			progress.update(1);
+			let metadata = self.add_file(path)?;
+			notifier(metadata.path());
 			Ok(())
 		} else {
 			// TODO: io::Result doesn't make sense for this.
@@ -88,23 +100,33 @@ impl Index {
 		}
 	}
 
-	fn add_dir<T: ProgressCounter>(
+	pub fn add_legacy<T: ProgressCounter>(
 		&mut self,
 		path: impl AsRef<std::path::Path>,
 		progress: &T,
+	) -> io::Result<()> {
+		let mut count = 0usize;
+		self.add(path, |_| {
+			progress.update(count);
+			count += 1;
+		})
+	}
+
+	fn add_dir(
+		&mut self,
+		path: impl AsRef<std::path::Path>,
+		mut notifier: impl FnMut(&str),
 	) -> io::Result<()> {
 		let mut queue = VecDeque::new();
 		queue.push_back(path.as_ref().to_path_buf());
 
 		let mut is_root = path.as_ref().parent().is_none();
 
-		let mut count = 0;
 		while let Some(current_path) = queue.pop_front() {
 			let metadata = Metadata::from_path(&current_path)?;
 			self.dirs.push(metadata);
+			notifier(self.dirs.last().unwrap().path());
 
-			count += 1;
-			progress.update(count);
 			for entry in fs::read_dir(current_path)? {
 				let entry = entry?;
 				let path = entry.path();
@@ -119,9 +141,8 @@ impl Index {
 
 					queue.push_back(path);
 				} else {
-					self.add_file(path)?;
-					count += 1;
-					progress.update(count);
+					let metadata = self.add_file(path)?;
+					notifier(metadata.path());
 				}
 			}
 			is_root = false;
@@ -131,14 +152,14 @@ impl Index {
 		Ok(())
 	}
 
-	fn add_file(&mut self, path: impl AsRef<std::path::Path>) -> io::Result<()> {
+	fn add_file(&mut self, path: impl AsRef<std::path::Path>) -> io::Result<&Metadata> {
 		let metadata = fs::metadata(path.as_ref())?;
 		self.files.push(FileMetadata {
 			meta: Metadata::from_path(path.as_ref())?,
 			size: metadata.len(),
 			checksum: Checksum::new(),
 		});
-		Ok(())
+		Ok(&self.files.last().unwrap().meta)
 	}
 
 	// Removes the directory in the given path.

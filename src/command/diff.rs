@@ -35,7 +35,7 @@ pub fn diff(src: &PathBuf, index_file: &PathBuf) -> Result<()> {
 			}
 		});
 		let src_thread = s.spawn(|| -> io::Result<()> {
-			index_src.add(std::path::absolute(src)?, &task_src.counter)?;
+			index_src.add_legacy(std::path::absolute(src)?, &task_src.counter)?;
 			task_src.set_done();
 			Ok(())
 		});
