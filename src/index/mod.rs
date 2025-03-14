@@ -141,10 +141,12 @@ impl Index {
 
 	// Removes the directory in the given path.
 	fn remove_dir(&mut self, path: impl AsRef<std::path::Path>) {
-		let path_str = metadata::normalized_path(path.as_ref());
-		// TODO: This logic might be wrong.
-		self.files.retain(|entry| !entry.meta.path().starts_with(&path_str));
-		self.dirs.retain(|entry| !entry.path().starts_with(&path_str));
+		if let Some(index) = self.find_dir(&path) {
+			self.files.remove(index);
+		}
+		if let Some((start, end)) = self.find_dir_files(&path) {
+			self.files.drain(start..end);
+		}
 	}
 
 	// Removes the file in the given path.
@@ -154,9 +156,31 @@ impl Index {
 		}
 	}
 
+	fn find_dir(&mut self, path: impl AsRef<std::path::Path>) -> Option<usize> {
+		let p = normalized_path(path);
+		self.dirs.binary_search_by(|entry| entry.path().cmp(&p)).ok()
+	}
+
 	fn find_file(&mut self, path: impl AsRef<std::path::Path>) -> Option<usize> {
 		let p = normalized_path(path);
 		self.files.binary_search_by(|entry| entry.meta.path().cmp(&p)).ok()
+	}
+
+	fn find_dir_files(&mut self, path: impl AsRef<std::path::Path>) -> Option<(usize, usize)> {
+		let mut p = normalized_path(path);
+		if !p.ends_with('/') {
+			p.push('/');
+		}
+
+		let start = self.files.binary_search_by(|entry| entry.meta.path().cmp(&p)).ok()?;
+		let mut end = start;
+		for entry in &self.files[start..] {
+			if !entry.meta.path().starts_with(&p) {
+				break;
+			}
+			end += 1;
+		}
+		Some((start, end))
 	}
 
 	pub fn calculate_all(&mut self) -> io::Result<()> {
