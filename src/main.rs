@@ -82,6 +82,10 @@ struct Duplicates {
 	#[clap(long)]
 	filter: Option<Regex>,
 
+	/// Finds duplicate dirs. If unset, finds duplicate files instead.
+	#[clap(long)]
+	dirs: bool,
+
 	#[command(flatten)]
 	matches: Matches,
 }
@@ -129,6 +133,7 @@ fn main() -> Result<()> {
 		Command::Duplicates(subcommand) => {
 			command::duplicates(
 				&subcommand.index_file,
+				subcommand.dirs,
 				subcommand.filter.as_ref(),
 				subcommand.matches.name,
 				subcommand.matches.created,

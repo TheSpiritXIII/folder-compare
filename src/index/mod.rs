@@ -24,6 +24,14 @@ use serde::Serialize;
 // Among User-managed Collections.
 const BUF_SIZE: usize = 1024 * 8;
 
+#[derive(PartialEq, Eq, Hash)]
+pub struct DirStats {
+	file_count: usize,
+	file_size: u128,
+	dir_count: usize,
+	dir_size: u128,
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct Index {
 	pub(crate) files: Vec<entry::File>,
@@ -159,12 +167,30 @@ impl Index {
 		Some((start, end))
 	}
 
+	fn find_dir_children(&self, path: impl AsRef<std::path::Path>) -> Option<(usize, usize)> {
+		let mut p = normalized_path(path);
+		if p.is_empty() {
+			return Some((0, self.dirs.len()));
+		}
+		p.push('/');
+
+		let start = self.dirs.binary_search_by(|entry| entry.meta.path().cmp(&p)).ok()? + 1;
+		let mut end = start;
+		for entry in &self.dirs[end..] {
+			if !entry.meta.path().starts_with(&p) {
+				break;
+			}
+			end += 1;
+		}
+		Some((start, end))
+	}
+
 	fn find_file(&mut self, path: impl AsRef<std::path::Path>) -> Option<usize> {
 		let p = normalized_path(path);
 		self.files.binary_search_by(|entry| entry.meta.path().cmp(&p)).ok()
 	}
 
-	fn find_dir_files(&mut self, path: impl AsRef<std::path::Path>) -> (usize, usize) {
+	fn find_dir_files(&self, path: impl AsRef<std::path::Path>) -> (usize, usize) {
 		let mut p = normalized_path(path);
 		if p.is_empty() {
 			return (0, self.files.len());
@@ -340,6 +366,50 @@ impl Index {
 
 		let mut matches = Vec::new();
 		for (_, path_list) in path_by_checksum {
+			if path_list.len() > 1 {
+				matches.push(path_list);
+			}
+		}
+		matches
+	}
+
+	pub fn dir_stats(&self, dir: impl AsRef<Path>) -> DirStats {
+		let (start, end) = self.find_dir_files(&dir);
+		let mut file_size = 0;
+		for file in &self.files[start..end] {
+			file_size += u128::from(file.size);
+		}
+
+		let mut dir_count = 0;
+		let mut dir_size = 0;
+		if let Some((start, end)) = self.find_dir_children(&dir) {
+			for dir in &self.dirs[start..end] {
+				let child_stats = self.dir_stats(dir.meta.path());
+				dir_size += child_stats.file_size;
+			}
+			dir_count = end - start;
+		}
+
+		DirStats {
+			file_count: end - start,
+			file_size,
+			dir_count,
+			dir_size,
+		}
+	}
+
+	pub fn duplicate_dirs(&mut self) -> Vec<Vec<String>> {
+		let mut meta_by_dir = HashMap::<DirStats, Vec<String>>::new();
+		for dir in &self.dirs {
+			let stats = self.dir_stats(dir.meta.path());
+			if stats.dir_count == 0 && stats.file_count == 0 {
+				continue;
+			}
+			meta_by_dir.entry(stats).or_default().push(dir.meta.path().to_string());
+		}
+
+		let mut matches = Vec::new();
+		for (_, path_list) in meta_by_dir {
 			if path_list.len() > 1 {
 				matches.push(path_list);
 			}
