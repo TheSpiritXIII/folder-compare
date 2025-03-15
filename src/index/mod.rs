@@ -4,6 +4,7 @@ mod metadata;
 #[cfg(test)]
 mod test;
 
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::fs::{self};
@@ -194,6 +195,7 @@ impl Index {
 	fn normalize(&mut self) {
 		self.files.sort_by(|a, b| a.meta.path().cmp(b.meta.path()));
 		self.dirs.sort_by(|a, b| a.meta.path().cmp(b.meta.path()));
+		debug_assert!(self.validate());
 	}
 
 	// TODO: Validate file extension?
@@ -209,6 +211,8 @@ impl Index {
 	pub fn open(path: impl AsRef<Path>) -> io::Result<Self> {
 		let json = fs::read_to_string(path)?;
 		let index: Self = ron::from_str(&json).unwrap();
+		// TODO: Assert in release mode.
+		debug_assert!(index.validate());
 		Ok(index)
 	}
 
@@ -424,6 +428,17 @@ impl Index {
 
 	pub fn dirty(&self) -> bool {
 		self.dirty
+	}
+
+	fn validate(&self) -> bool {
+		if !self.files.is_sorted_by(|a, b| a.meta.path().cmp(b.meta.path()) == Ordering::Less) {
+			return false;
+		}
+		if !self.dirs.is_sorted_by(|a, b| a.meta.path().cmp(b.meta.path()) == Ordering::Less) {
+			return false;
+		}
+		// TODO: Ensure that each dir is represented. Extract from files.
+		true
 	}
 }
 
