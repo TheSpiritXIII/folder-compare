@@ -51,6 +51,7 @@ impl Index {
 		let mut index = Self::new();
 		if path.as_ref().is_dir() {
 			index.add_dir(path.as_ref(), notifier)?;
+			index.normalize();
 			return Ok(index);
 		} else if path.as_ref().is_file() {
 			index.add_file(path)?;
@@ -431,11 +432,25 @@ impl Index {
 	}
 
 	fn validate(&self) -> bool {
-		if !self.files.is_sorted_by(|a, b| a.meta.path().cmp(b.meta.path()) == Ordering::Less) {
-			return false;
+		for i in 1..self.files.len() {
+			let file_before = &self.files[i - 1];
+			let file_after = &self.files[i];
+			let path_before = file_before.meta.path();
+			let path_after = file_after.meta.path();
+			if path_before.cmp(path_after) != Ordering::Less {
+				println!("File order is wrong: {path_before} vs {path_after}");
+				return false;
+			}
 		}
-		if !self.dirs.is_sorted_by(|a, b| a.meta.path().cmp(b.meta.path()) == Ordering::Less) {
-			return false;
+		for i in 1..self.dirs.len() {
+			let dir_before = &self.dirs[i - 1];
+			let dir_after = &self.dirs[i];
+			let path_before = dir_before.meta.path();
+			let path_after = dir_after.meta.path();
+			if path_before.cmp(path_after) != Ordering::Less {
+				println!("File order is wrong: {path_before} vs {path_after}");
+				return false;
+			}
 		}
 		// TODO: Ensure that each dir is represented. Extract from files.
 		true
