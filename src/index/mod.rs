@@ -1,4 +1,5 @@
 mod checksum;
+mod entry;
 mod metadata;
 #[cfg(test)]
 mod test;
@@ -23,16 +24,9 @@ use serde::Serialize;
 const BUF_SIZE: usize = 1024 * 8;
 
 #[derive(Serialize, Deserialize)]
-pub struct FileMetadata {
-	meta: Metadata,
-	size: u64,
-	checksum: Checksum,
-}
-
-#[derive(Serialize, Deserialize)]
 pub struct Index {
-	pub(crate) files: Vec<FileMetadata>,
-	pub(crate) dirs: Vec<Metadata>,
+	pub(crate) files: Vec<entry::File>,
+	pub(crate) dirs: Vec<entry::Dir>,
 
 	#[serde(skip_serializing)]
 	#[serde(skip_deserializing)]
@@ -98,9 +92,8 @@ impl Index {
 		let mut is_root = path.as_ref().parent().is_none();
 
 		while let Some(current_path) = queue.pop_front() {
-			let metadata = Metadata::from_path(&current_path)?;
-			self.dirs.push(metadata);
-			notifier(self.dirs.last().unwrap().path());
+			self.dirs.push(entry::Dir::from_path(&current_path)?);
+			notifier(self.dirs.last().unwrap().meta.path());
 
 			for entry in fs::read_dir(current_path)? {
 				let entry = entry?;
@@ -127,12 +120,7 @@ impl Index {
 	}
 
 	fn add_file(&mut self, path: impl AsRef<std::path::Path>) -> io::Result<&Metadata> {
-		let metadata = fs::metadata(path.as_ref())?;
-		self.files.push(FileMetadata {
-			meta: Metadata::from_path(path.as_ref())?,
-			size: metadata.len(),
-			checksum: Checksum::new(),
-		});
+		self.files.push(entry::File::from_path(path)?);
 		Ok(&self.files.last().unwrap().meta)
 	}
 
@@ -157,11 +145,11 @@ impl Index {
 		if p.is_empty() {
 			return Some((0, self.dirs.len()));
 		}
-		let start = self.dirs.binary_search_by(|entry| entry.path().cmp(&p)).ok()?;
+		let start = self.dirs.binary_search_by(|entry| entry.meta.path().cmp(&p)).ok()?;
 		let mut end = start + 1;
 		p.push('/');
 		for entry in &self.dirs[end..] {
-			if !entry.path().starts_with(&p) {
+			if !entry.meta.path().starts_with(&p) {
 				break;
 			}
 			end += 1;
@@ -205,7 +193,7 @@ impl Index {
 
 	fn normalize(&mut self) {
 		self.files.sort_by(|a, b| a.meta.path().cmp(b.meta.path()));
-		self.dirs.sort_by(|a, b| a.path().cmp(b.path()));
+		self.dirs.sort_by(|a, b| a.meta.path().cmp(b.meta.path()));
 	}
 
 	// TODO: Validate file extension?

@@ -28,30 +28,25 @@ pub fn parent_str(path: &str) -> Option<&str> {
 	None
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Hash, Clone, PartialOrd, Ord)]
 pub struct Metadata {
-	path: String,
-	created_time: std::time::SystemTime,
-	modified_time: std::time::SystemTime,
+	pub path: String,
+	pub created_time: std::time::SystemTime,
+	pub modified_time: std::time::SystemTime,
 }
 
 impl Metadata {
-	#[cfg(test)]
-	pub fn with_path(path: impl AsRef<Path>) -> Self {
-		Self {
-			path: normalized_path(path.as_ref()),
-			created_time: SystemTime::UNIX_EPOCH,
-			modified_time: SystemTime::UNIX_EPOCH,
-		}
-	}
-
 	pub fn from_path(path: impl AsRef<Path>) -> io::Result<Self> {
 		let metadata = fs::metadata(path.as_ref())?;
-		Ok(Self {
+		Ok(Self::from_metadata(path, &metadata))
+	}
+
+	pub fn from_metadata(path: impl AsRef<Path>, metadata: &fs::Metadata) -> Self {
+		Self {
 			path: normalized_path(path.as_ref()),
 			created_time: metadata.created().unwrap_or(SystemTime::UNIX_EPOCH),
 			modified_time: metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH),
-		})
+		}
 	}
 
 	pub fn path(&self) -> &str {

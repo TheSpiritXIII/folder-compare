@@ -17,7 +17,7 @@ fn sha512_checksum(path: impl AsRef<Path>, buf: &mut Vec<u8>) -> io::Result<Stri
 	Ok(format!("{:x}", hasher.finalize()))
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Hash, Clone, Default)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Hash, Clone, Default, PartialOrd, Ord)]
 pub struct Checksum {
 	sha512: String,
 }
