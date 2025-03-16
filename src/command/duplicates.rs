@@ -16,7 +16,8 @@ use crate::util::timer::CountdownTimer;
 pub fn duplicates(
 	index_file: &PathBuf,
 	dirs: bool,
-	filter: Option<&Regex>,
+	allowlist: Option<&Regex>,
+	denylist: Option<&Regex>,
 	match_name: bool,
 	match_created: bool,
 	match_modified: bool,
@@ -43,7 +44,8 @@ pub fn duplicates(
 						io::stdout().flush().unwrap();
 					}
 				},
-				filter,
+				allowlist,
+				denylist,
 				match_name,
 				match_created,
 				match_modified,
@@ -52,7 +54,7 @@ pub fn duplicates(
 
 		clear_line();
 		println!("Gathering duplicates...");
-		index.duplicate_dirs(filter)
+		index.duplicate_dirs(allowlist, denylist)
 	} else {
 		println!("Comparing files...");
 		let total = index.file_count();
@@ -71,7 +73,8 @@ pub fn duplicates(
 						io::stdout().flush().unwrap();
 					}
 				},
-				filter,
+				allowlist,
+				denylist,
 				match_name,
 				match_created,
 				match_modified,
@@ -80,7 +83,7 @@ pub fn duplicates(
 
 		clear_line();
 		println!("Gathering duplicates...");
-		index.duplicates(filter)
+		index.duplicates(allowlist, denylist)
 	};
 
 	if duplicates.is_empty() {

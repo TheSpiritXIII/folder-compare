@@ -83,7 +83,7 @@ pub fn diff(
 		println!("No changes");
 	}
 	clear_line();
-	println!("Finished comparing {} entries!", total);
+	println!("Finished comparing {total} entries!");
 
 	for diff in &diff_list {
 		match diff {
@@ -97,7 +97,7 @@ pub fn diff(
 				println!("Δ {name}");
 			}
 			Diff::Moved(from, to) => {
-				println!("📍{from} → {to}")
+				println!("📍{from} → {to}");
 			}
 		}
 	}

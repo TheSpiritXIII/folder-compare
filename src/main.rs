@@ -78,9 +78,8 @@ struct Duplicates {
 	#[clap(long)]
 	index_file: PathBuf,
 
-	/// Regular expression containing a path filer.
-	#[clap(long)]
-	filter: Option<Regex>,
+	#[command(flatten)]
+	filter: Filter,
 
 	/// Finds duplicate dirs. If unset, finds duplicate files instead.
 	#[clap(long)]
@@ -104,6 +103,17 @@ struct Matches {
 	/// If set, matches modified times, causing potential false negatives but a faster evaluation.
 	#[clap(long = "match-modified")]
 	modified: bool,
+}
+
+#[derive(Args, Debug)]
+struct Filter {
+	/// Regular expression for expressing the paths to keep.
+	#[clap(long)]
+	allowlist: Option<Regex>,
+
+	/// Regular expression for expressing the paths to ignore.
+	#[clap(long)]
+	denylist: Option<Regex>,
 }
 
 fn main() -> Result<()> {
@@ -134,7 +144,8 @@ fn main() -> Result<()> {
 			command::duplicates(
 				&subcommand.index_file,
 				subcommand.dirs,
-				subcommand.filter.as_ref(),
+				subcommand.filter.allowlist.as_ref(),
+				subcommand.filter.denylist.as_ref(),
 				subcommand.matches.name,
 				subcommand.matches.created,
 				subcommand.matches.modified,

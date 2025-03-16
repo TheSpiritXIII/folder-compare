@@ -276,15 +276,21 @@ impl Index {
 	pub fn calculate_matches(
 		&mut self,
 		mut notifier: impl FnMut(&str),
-		filter: Option<&Regex>,
+		allowlist: Option<&Regex>,
+		denylist: Option<&Regex>,
 		match_name: bool,
 		match_created: bool,
 		match_modified: bool,
 	) -> io::Result<()> {
 		let mut file_index_by_size = HashMap::<u64, Vec<usize>>::new();
 		for (file_index, file) in self.files.iter().enumerate() {
-			if let Some(filter) = filter {
+			if let Some(filter) = allowlist {
 				if !filter.is_match(file.meta.path()) {
+					continue;
+				}
+			}
+			if let Some(filter) = denylist {
+				if filter.is_match(file.meta.path()) {
 					continue;
 				}
 			}
@@ -365,12 +371,21 @@ impl Index {
 		Ok(())
 	}
 
-	pub fn duplicates(&self, filter: Option<&Regex>) -> Vec<Vec<String>> {
+	pub fn duplicates(
+		&self,
+		allowlist: Option<&Regex>,
+		denylist: Option<&Regex>,
+	) -> Vec<Vec<String>> {
 		let mut path_by_checksum = HashMap::<(Checksum, u64), Vec<String>>::new();
 		for file in &self.files {
 			if !file.checksum.is_empty() {
-				if let Some(filter) = filter {
+				if let Some(filter) = allowlist {
 					if !filter.is_match(file.meta.path()) {
+						continue;
+					}
+				}
+				if let Some(filter) = denylist {
+					if filter.is_match(file.meta.path()) {
 						continue;
 					}
 				}
@@ -410,10 +425,12 @@ impl Index {
 		}
 	}
 
+	#[allow(clippy::too_many_lines)]
 	pub fn calculate_dir_matches(
 		&mut self,
 		mut notifier: impl FnMut(&str),
-		filter: Option<&Regex>,
+		allowlist: Option<&Regex>,
+		denylist: Option<&Regex>,
 		match_name: bool,
 		match_created: bool,
 		match_modified: bool,
@@ -424,8 +441,13 @@ impl Index {
 			if stats.dir_count == 0 && stats.file_count == 0 {
 				continue;
 			}
-			if let Some(filter) = filter {
+			if let Some(filter) = allowlist {
 				if !filter.is_match(dir.meta.path()) {
+					continue;
+				}
+			}
+			if let Some(filter) = denylist {
+				if filter.is_match(dir.meta.path()) {
 					continue;
 				}
 			}
@@ -523,11 +545,20 @@ impl Index {
 		Ok(())
 	}
 
-	pub fn duplicate_dirs(&mut self, filter: Option<&Regex>) -> Vec<Vec<String>> {
+	pub fn duplicate_dirs(
+		&mut self,
+		allowlist: Option<&Regex>,
+		denylist: Option<&Regex>,
+	) -> Vec<Vec<String>> {
 		let mut dirs_by_checksums = HashMap::<Vec<Checksum>, Vec<String>>::new();
 		for dir in &self.dirs {
-			if let Some(filter) = filter {
+			if let Some(filter) = allowlist {
 				if !filter.is_match(dir.meta.path()) {
+					continue;
+				}
+			}
+			if let Some(filter) = denylist {
+				if filter.is_match(dir.meta.path()) {
 					continue;
 				}
 			}
@@ -550,6 +581,7 @@ impl Index {
 		matches
 	}
 
+	#[allow(clippy::too_many_lines)]
 	pub fn diff(
 		&mut self,
 		other: &mut Index,
@@ -648,11 +680,16 @@ impl Index {
 		for (checksum, path_list_self) in file_index_self_by_checksum {
 			if let Some(path_list_other) = file_index_other_by_checksum.remove(&checksum) {
 				if path_list_self.len() == path_list_other.len() {
-					for (file_index_self, file_index_other) in path_list_self.iter().zip(path_list_other) {
+					for (file_index_self, file_index_other) in
+						path_list_self.iter().zip(path_list_other)
+					{
 						let file_self = &mut self.files[*file_index_self];
 						let file_other = &mut other.files[file_index_other];
-						
-						diff_list.push(Diff::Moved(file_self.meta.path().to_string(), file_other.meta.path().to_string()));
+
+						diff_list.push(Diff::Moved(
+							file_self.meta.path().to_string(),
+							file_other.meta.path().to_string(),
+						));
 					}
 					continue;
 				}
