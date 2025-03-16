@@ -23,18 +23,26 @@ pub fn index(src: &PathBuf, index_file: &PathBuf, sha_512: bool) -> Result<()> {
 		}
 		current += 1;
 	};
+
 	let mut index = if index_file.exists() {
+		println!("Opening index file...");
 		let mut index = Index::open(index_file)
 			.with_context(|| format!("Unable to open index: {}", index_file.display()))?;
+		println!("Updating index file...");
 		index.add(std::path::absolute(src)?, update_fn)?;
 		index
 	} else {
+		println!("Reading files...");
 		Index::from_path(std::path::absolute(src)?, update_fn)?
 	};
+	clear_line();
+	println!("Discovered {current} total entries!");
 
 	if sha_512 {
+		println!("Updating checksums...");
 		index.calculate_all()?;
 	}
+	println!("Saving index file...");
 	index.save(index_file)?;
 	Ok(())
 }

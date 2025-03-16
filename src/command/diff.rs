@@ -82,6 +82,8 @@ pub fn diff(
 	if diff_list.is_empty() {
 		println!("No changes");
 	}
+	clear_line();
+	println!("Finished comparing {} entries!", total);
 
 	for diff in &diff_list {
 		match diff {

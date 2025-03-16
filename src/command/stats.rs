@@ -38,6 +38,7 @@ pub fn stats(src: Option<&PathBuf>, index_file: Option<&PathBuf>) -> Result<()> 
 		bail!("Expected source or index-file");
 	};
 
+	clear_line();
 	let count = index.entry_count();
 	println!("Found {count} total entries!");
 	let file_count = index.file_count();

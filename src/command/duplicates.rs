@@ -50,6 +50,7 @@ pub fn duplicates(
 			)
 			.with_context(|| format!("Comparison failed during dir: {last_path}"))?;
 
+		clear_line();
 		println!("Gathering duplicates...");
 		index.duplicate_dirs(filter)
 	} else {
@@ -77,6 +78,7 @@ pub fn duplicates(
 			)
 			.with_context(|| format!("Comparison failed during file: {last_path}"))?;
 
+		clear_line();
 		println!("Gathering duplicates...");
 		index.duplicates(filter)
 	};
