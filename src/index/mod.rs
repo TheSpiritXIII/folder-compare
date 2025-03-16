@@ -433,6 +433,7 @@ impl Index {
 
 	pub fn duplicate_dirs(
 		&mut self,
+		filter: Option<&Regex>,
 		match_created: bool,
 		match_modified: bool,
 	) -> Vec<Vec<String>> {
@@ -442,6 +443,11 @@ impl Index {
 			if stats.dir_count == 0 && stats.file_count == 0 {
 				continue;
 			}
+			if let Some(filter) = filter {
+				if !filter.is_match(dir.meta.path()) {
+					continue;
+				}
+			}
 			dirs_by_stats.entry(stats).or_default().push(dir.meta.path().to_string());
 		}
 
@@ -450,7 +456,6 @@ impl Index {
 			if path_list.len() > 1 {
 				let mut dirs_by_entry_names = HashMap::<Root, Vec<String>>::new();
 
-				// let files = self.dir_file_names(&path);
 				for path in path_list {
 					let mut root = self.sub_index(&path);
 					for file in &mut root.files {

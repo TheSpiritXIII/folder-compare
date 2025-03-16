@@ -31,7 +31,7 @@ pub fn duplicates(
 		if !match_name || match_created || match_modified {
 			bail!("Only --match-name is supported so far. Sorry. :(");
 		}
-		index.duplicate_dirs(match_created, match_modified)
+		index.duplicate_dirs(filter, match_created, match_modified)
 	} else {
 		println!("Comparing files...");
 		let total = index.file_count();
