@@ -74,8 +74,19 @@ impl Index {
 	) -> io::Result<()> {
 		if path.as_ref().is_dir() {
 			self.dirty = true;
-			self.remove_dir(path.as_ref());
-			self.add_dir(path, notifier)?;
+			let removed = self.remove_dir(path.as_ref());
+			let added = self.add_dir(path, notifier)?;
+			if let Some(entry_list) = removed {
+				let mut meta_map = HashMap::new();
+				for entry in entry_list {
+					meta_map.insert(entry.meta, entry.checksum);
+				}
+				for entry in added {
+					if let Some(checksum) = meta_map.get(&entry.meta) {
+						entry.checksum = checksum.clone();
+					}
+				}
+			}
 		} else if path.as_ref().is_file() {
 			self.dirty = true;
 			let removed = self.remove_file(path.as_ref());
@@ -98,11 +109,12 @@ impl Index {
 		&mut self,
 		path: impl AsRef<std::path::Path>,
 		mut notifier: impl FnMut(&str),
-	) -> io::Result<()> {
+	) -> io::Result<&mut [entry::File]> {
 		let mut queue = VecDeque::new();
 		queue.push_back(path.as_ref().to_path_buf());
 
 		let mut is_root = path.as_ref().parent().is_none();
+		let start_index = self.files.len();
 
 		while let Some(current_path) = queue.pop_front() {
 			self.dirs.push(entry::Dir::from_path(&current_path)?);
@@ -129,7 +141,7 @@ impl Index {
 			is_root = false;
 		}
 
-		Ok(())
+		Ok(&mut self.files[start_index..])
 	}
 
 	fn add_file(&mut self, path: impl AsRef<std::path::Path>) -> io::Result<&mut entry::File> {
@@ -138,12 +150,13 @@ impl Index {
 	}
 
 	// Removes the directory in the given path.
-	fn remove_dir(&mut self, path: impl AsRef<std::path::Path>) {
+	fn remove_dir(&mut self, path: impl AsRef<std::path::Path>) -> Option<Vec<entry::File>> {
 		if let Some((start, end)) = self.find_dirs(&path) {
 			self.dirs.drain(start..end);
 			let (start, end) = self.find_dir_files(&path);
-			self.files.drain(start..end);
+			return Some(self.files.drain(start..end).collect());
 		}
+		None
 	}
 
 	// Removes the file in the given path.

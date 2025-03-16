@@ -4,8 +4,8 @@ use std::time::SystemTime;
 use super::checksum::Checksum;
 use super::entry;
 use super::metadata::parent_str;
+use super::metadata::Metadata;
 use super::Index;
-use super::Metadata;
 
 fn metadata_with_path(path: &str) -> Metadata {
 	Metadata {
