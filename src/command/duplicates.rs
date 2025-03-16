@@ -37,9 +37,9 @@ pub fn duplicates(
 					last_path = path.to_string();
 					current += 1;
 					if countdown.passed() {
-						clear_line();
 						let percent = percentage(current, total);
-						print!("Processed {current} of {total} entries ({percent}%)...: {path}");
+						clear_line();
+						print!("Processed {current} of {total} entries ({percent})...: {path}");
 						io::stdout().flush().unwrap();
 					}
 				},
@@ -64,9 +64,9 @@ pub fn duplicates(
 					last_path = path.to_string();
 					current += 1;
 					if countdown.passed() {
-						clear_line();
 						let percent = percentage(current, total);
-						print!("Processed {current} of {total} entries ({percent}%)...: {path}");
+						clear_line();
+						print!("Processed {current} of {total} entries ({percent})...: {path}");
 						io::stdout().flush().unwrap();
 					}
 				},

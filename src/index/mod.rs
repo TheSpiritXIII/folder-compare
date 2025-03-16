@@ -31,12 +31,6 @@ struct DirStats {
 	dir_count: usize,
 }
 
-// #[derive(PartialEq, Eq, Hash)]
-// struct Root {
-// 	files: Vec<entry::File>,
-// 	dirs: Vec<entry::Dir>,
-// }
-
 #[derive(Serialize, Deserialize)]
 pub struct Index {
 	pub(crate) files: Vec<entry::File>,
@@ -396,54 +390,6 @@ impl Index {
 			dir_count,
 		}
 	}
-
-	// fn sub_index(&self, dir: impl AsRef<Path>) -> Root {
-	// 	let (start, end) = self.find_dir_files(&dir);
-	// 	let p = normalized_path(&dir);
-	// 	let mut file_names = Vec::with_capacity(end - start);
-	// 	for file in &self.files[start..end] {
-	// 		file_names.push(entry::File {
-	// 			meta: Metadata {
-	// 				path: file.meta.path()[(p.len() + 1)..].to_string(),
-	// 				..file.meta.clone()
-	// 			},
-	// 			..file.clone()
-	// 		});
-	// 	}
-	// 	let dir_list = if let Some((start, end)) = self.find_dir_children(&dir) {
-	// 		let mut dir_list = Vec::with_capacity(end - start);
-	// 		for dir in &self.dirs[start..end] {
-	// 			dir_list.push(entry::Dir {
-	// 				meta: Metadata {
-	// 					path: dir.meta.path()[(p.len() + 1)..].to_string(),
-	// 					..dir.meta.clone()
-	// 				},
-	// 			});
-	// 		}
-	// 		dir_list
-	// 	} else {
-	// 		Vec::new()
-	// 	};
-	// 	Root {
-	// 		files: file_names,
-	// 		dirs: dir_list,
-	// 	}
-	// }
-
-	// fn dir_files(&self, dir: impl AsRef<Path>) -> &[entry::File] {
-	// 	let (start, end) = self.find_dir_files(&dir);
-	// 	&self.files[start..end]
-	// }
-
-	// fn dir_checksum(&self, dir: impl AsRef<Path>) -> Vec<Checksum> {
-	// 	let (start, end) = self.find_dir_files(&dir);
-	// 	let mut file_checksums = Vec::with_capacity(end - start);
-	// 	for file in &self.files[start..end] {
-	// 		file_checksums.push(file.checksum.clone());
-	// 	}
-	// 	file_checksums.sort();
-	// 	file_checksums
-	// }
 
 	pub fn calculate_dir_matches(
 		&mut self,
