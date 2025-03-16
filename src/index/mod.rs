@@ -14,7 +14,6 @@ use std::time::SystemTime;
 
 use checksum::Checksum;
 use metadata::normalized_path;
-use metadata::Metadata;
 use regex::Regex;
 use serde::Deserialize;
 use serde::Serialize;
@@ -79,9 +78,14 @@ impl Index {
 			self.add_dir(path, notifier)?;
 		} else if path.as_ref().is_file() {
 			self.dirty = true;
-			self.remove_file(path.as_ref());
-			let metadata = self.add_file(path)?;
-			notifier(metadata.path());
+			let removed = self.remove_file(path.as_ref());
+			let added = self.add_file(path)?;
+			if let Some(entry) = removed {
+				if entry.meta == added.meta {
+					added.checksum = entry.checksum;
+				}
+			}
+			notifier(added.meta.path());
 		} else {
 			// TODO: io::Result doesn't make sense for this.
 			return Err(io::Error::from(io::ErrorKind::Unsupported));
@@ -118,8 +122,8 @@ impl Index {
 
 					queue.push_back(path);
 				} else {
-					let metadata = self.add_file(path)?;
-					notifier(metadata.path());
+					let entry = self.add_file(path)?;
+					notifier(entry.meta.path());
 				}
 			}
 			is_root = false;
@@ -128,9 +132,9 @@ impl Index {
 		Ok(())
 	}
 
-	fn add_file(&mut self, path: impl AsRef<std::path::Path>) -> io::Result<&Metadata> {
+	fn add_file(&mut self, path: impl AsRef<std::path::Path>) -> io::Result<&mut entry::File> {
 		self.files.push(entry::File::from_path(path)?);
-		Ok(&self.files.last().unwrap().meta)
+		Ok(self.files.last_mut().unwrap())
 	}
 
 	// Removes the directory in the given path.
@@ -143,10 +147,11 @@ impl Index {
 	}
 
 	// Removes the file in the given path.
-	fn remove_file(&mut self, path: impl AsRef<std::path::Path>) {
+	fn remove_file(&mut self, path: impl AsRef<std::path::Path>) -> Option<entry::File> {
 		if let Some(index) = self.find_file(path) {
-			self.files.remove(index);
+			return Some(self.files.remove(index));
 		}
+		None
 	}
 
 	fn find_dirs(&mut self, path: impl AsRef<std::path::Path>) -> Option<(usize, usize)> {
