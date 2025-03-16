@@ -185,11 +185,10 @@ impl Index {
 	}
 
 	fn find_dir_children(&self, path: impl AsRef<std::path::Path>) -> Option<(usize, usize)> {
-		let mut p = normalized_path(path);
+		let p = normalized_path(path);
 		if p.is_empty() {
 			return Some((0, self.dirs.len()));
 		}
-		p.push('/');
 
 		let start = self.dirs.binary_search_by(|entry| entry.meta.path().cmp(&p)).ok()? + 1;
 		let mut end = start;
