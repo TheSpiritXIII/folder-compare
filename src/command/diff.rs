@@ -96,6 +96,9 @@ pub fn diff(
 			Diff::Changed(name) => {
 				println!("Δ {name}");
 			}
+			Diff::Moved(from, to) => {
+				println!("📍{from} → {to}")
+			}
 		}
 	}
 	Ok(())

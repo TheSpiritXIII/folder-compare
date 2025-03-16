@@ -562,6 +562,9 @@ impl Index {
 		let mut diff_list = Vec::new();
 		let mut file_index_self = 0;
 		let mut file_index_other = 0;
+
+		let mut file_index_self_by_checksum = HashMap::<(Checksum, u64), Vec<usize>>::new();
+		let mut file_index_other_by_checksum = HashMap::<(Checksum, u64), Vec<usize>>::new();
 		loop {
 			if file_index_self == self.files.len() {
 				for file in &other.files[file_index_other..] {
@@ -582,11 +585,25 @@ impl Index {
 
 			match file_self.meta.path().cmp(file_other.meta.path()) {
 				std::cmp::Ordering::Less => {
-					diff_list.push(Diff::Added(file_self.meta.path().to_string()));
+					if file_self.checksum.is_empty() {
+						diff_list.push(Diff::Added(file_self.meta.path().to_string()));
+					} else {
+						file_index_self_by_checksum
+							.entry((file_self.checksum.clone(), file_self.size))
+							.or_default()
+							.push(file_index_self);
+					}
 					file_index_self += 1;
 				}
 				std::cmp::Ordering::Greater => {
-					diff_list.push(Diff::Removed(file_other.meta.path().to_string()));
+					if file_other.checksum.is_empty() {
+						diff_list.push(Diff::Removed(file_other.meta.path().to_string()));
+					} else {
+						file_index_other_by_checksum
+							.entry((file_other.checksum.clone(), file_other.size))
+							.or_default()
+							.push(file_index_other);
+					}
 					file_index_other += 1;
 				}
 				std::cmp::Ordering::Equal => {
@@ -627,6 +644,42 @@ impl Index {
 				}
 			}
 		}
+
+		for (checksum, path_list_self) in file_index_self_by_checksum {
+			if let Some(path_list_other) = file_index_other_by_checksum.remove(&checksum) {
+				if path_list_self.len() == path_list_other.len() {
+					for (file_index_self, file_index_other) in path_list_self.iter().zip(path_list_other) {
+						let file_self = &mut self.files[*file_index_self];
+						let file_other = &mut other.files[file_index_other];
+						
+						diff_list.push(Diff::Moved(file_self.meta.path().to_string(), file_other.meta.path().to_string()));
+					}
+					continue;
+				}
+
+				for file_index in path_list_self {
+					let file = &mut self.files[file_index];
+					diff_list.push(Diff::Added(file.meta.path().to_string()));
+				}
+				for file_index in path_list_other {
+					let file = &mut other.files[file_index];
+					diff_list.push(Diff::Removed(file.meta.path().to_string()));
+				}
+				continue;
+			}
+
+			for file_index in path_list_self {
+				let file = &mut self.files[file_index];
+				diff_list.push(Diff::Added(file.meta.path().to_string()));
+			}
+		}
+		for (_, path_list) in file_index_other_by_checksum {
+			for file_index in path_list {
+				let file = &mut other.files[file_index];
+				diff_list.push(Diff::Removed(file.meta.path().to_string()));
+			}
+		}
+
 		Ok(diff_list)
 	}
 
@@ -664,4 +717,5 @@ pub enum Diff {
 	Added(String),
 	Removed(String),
 	Changed(String),
+	Moved(String, String),
 }
