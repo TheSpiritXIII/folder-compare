@@ -25,11 +25,16 @@ use serde::Serialize;
 const BUF_SIZE: usize = 1024 * 8;
 
 #[derive(PartialEq, Eq, Hash)]
-pub struct DirStats {
+struct DirStats {
 	file_count: usize,
 	file_size: u128,
 	dir_count: usize,
-	dir_size: u128,
+}
+
+#[derive(PartialEq, Eq, Hash)]
+struct Root {
+	files: Vec<entry::File>,
+	dirs: Vec<entry::Dir>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -373,45 +378,106 @@ impl Index {
 		matches
 	}
 
-	pub fn dir_stats(&self, dir: impl AsRef<Path>) -> DirStats {
+	fn dir_stats(&self, dir: impl AsRef<Path>) -> DirStats {
 		let (start, end) = self.find_dir_files(&dir);
 		let mut file_size = 0;
 		for file in &self.files[start..end] {
 			file_size += u128::from(file.size);
 		}
 
-		let mut dir_count = 0;
-		let mut dir_size = 0;
-		if let Some((start, end)) = self.find_dir_children(&dir) {
-			for dir in &self.dirs[start..end] {
-				let child_stats = self.dir_stats(dir.meta.path());
-				dir_size += child_stats.file_size;
-			}
-			dir_count = end - start;
-		}
+		let dir_count = if let Some((start, end)) = self.find_dir_children(&dir) {
+			end - start
+		} else {
+			0
+		};
 
 		DirStats {
 			file_count: end - start,
 			file_size,
 			dir_count,
-			dir_size,
 		}
 	}
 
-	pub fn duplicate_dirs(&mut self) -> Vec<Vec<String>> {
-		let mut meta_by_dir = HashMap::<DirStats, Vec<String>>::new();
+	fn sub_index(&self, dir: impl AsRef<Path>) -> Root {
+		let (start, end) = self.find_dir_files(&dir);
+		let p = normalized_path(&dir);
+		let mut file_names = Vec::with_capacity(end - start);
+		for file in &self.files[start..end] {
+			file_names.push(entry::File {
+				meta: Metadata {
+					path: file.meta.path()[(p.len() + 1)..].to_string(),
+					..file.meta.clone()
+				},
+				..file.clone()
+			});
+		}
+		let dir_list = if let Some((start, end)) = self.find_dir_children(&dir) {
+			let mut dir_list = Vec::with_capacity(end - start);
+			for dir in &self.dirs[start..end] {
+				dir_list.push(entry::Dir {
+					meta: Metadata {
+						path: dir.meta.path()[(p.len() + 1)..].to_string(),
+						..dir.meta.clone()
+					},
+				});
+			}
+			dir_list
+		} else {
+			Vec::new()
+		};
+		Root {
+			files: file_names,
+			dirs: dir_list,
+		}
+	}
+
+	pub fn duplicate_dirs(
+		&mut self,
+		match_created: bool,
+		match_modified: bool,
+	) -> Vec<Vec<String>> {
+		let mut dirs_by_stats = HashMap::<DirStats, Vec<String>>::new();
 		for dir in &self.dirs {
 			let stats = self.dir_stats(dir.meta.path());
 			if stats.dir_count == 0 && stats.file_count == 0 {
 				continue;
 			}
-			meta_by_dir.entry(stats).or_default().push(dir.meta.path().to_string());
+			dirs_by_stats.entry(stats).or_default().push(dir.meta.path().to_string());
 		}
 
 		let mut matches = Vec::new();
-		for (_, path_list) in meta_by_dir {
+		for (_, path_list) in dirs_by_stats {
 			if path_list.len() > 1 {
-				matches.push(path_list);
+				let mut dirs_by_entry_names = HashMap::<Root, Vec<String>>::new();
+
+				// let files = self.dir_file_names(&path);
+				for path in path_list {
+					let mut root = self.sub_index(&path);
+					for file in &mut root.files {
+						file.checksum.reset();
+						if !match_created {
+							file.meta.created_time = SystemTime::UNIX_EPOCH;
+						}
+						if !match_modified {
+							file.meta.modified_time = SystemTime::UNIX_EPOCH;
+						}
+					}
+					for dir in &mut root.dirs {
+						if !match_created {
+							dir.meta.created_time = SystemTime::UNIX_EPOCH;
+						}
+						if !match_modified {
+							dir.meta.modified_time = SystemTime::UNIX_EPOCH;
+						}
+					}
+					dirs_by_entry_names.entry(root).or_default().push(path);
+				}
+
+				for (_, path_list) in dirs_by_entry_names {
+					if path_list.len() > 1 {
+						matches.push(path_list);
+					}
+				}
 			}
 		}
 		matches
