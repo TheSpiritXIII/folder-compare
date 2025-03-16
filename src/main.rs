@@ -57,6 +57,10 @@ struct StatsSubcommand {
 	/// Path to the index file to check the stats for.
 	#[clap(long)]
 	index_file: Option<PathBuf>,
+
+	/// Source dir to find stats for, or all indexed directories if not provided.
+	#[clap(long)]
+	dir: Option<PathBuf>,
 }
 
 #[derive(Args, Debug)]
@@ -129,7 +133,7 @@ fn main() -> Result<()> {
 			} else {
 				subcommand.src.as_ref().or(Some(&path))
 			};
-			command::stats(path, subcommand.index_file.as_ref())
+			command::stats(path, subcommand.index_file.as_ref(), subcommand.dir.as_ref())
 		}
 		Command::Diff(subcommand) => {
 			command::diff(

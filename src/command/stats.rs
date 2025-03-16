@@ -11,7 +11,11 @@ use crate::index::Index;
 use crate::util::terminal::clear_line;
 use crate::util::timer::CountdownTimer;
 
-pub fn stats(src: Option<&PathBuf>, index_file: Option<&PathBuf>) -> Result<()> {
+pub fn stats(
+	src: Option<&PathBuf>,
+	index_file: Option<&PathBuf>,
+	dir: Option<&PathBuf>,
+) -> Result<()> {
 	let mut current = 0usize;
 	let mut countdown = CountdownTimer::new(Duration::from_secs(1));
 	let mut last_path = String::new();
@@ -39,15 +43,25 @@ pub fn stats(src: Option<&PathBuf>, index_file: Option<&PathBuf>) -> Result<()> 
 	};
 
 	clear_line();
-	let count = index.entry_count();
+	let stats = if let Some(dir) = dir {
+		index.dir_stats(dir)
+	} else {
+		index.stats()
+	};
+	let count = stats.dir_count + stats.file_count;
 	println!("Found {count} total entries!");
-	let file_count = index.file_count();
+	let file_count = stats.file_count;
 	println!("{file_count} files.");
-	let dir_count = index.dirs_count();
+	let dir_count = stats.dir_count;
 	println!("{dir_count} directories.");
+	let dir_count = stats.file_size;
+	println!("{dir_count} bytes.");
 
 	if let Some(path) = index_file {
-		index.save(path)?;
+		if index.dirty() {
+			println!("Saving index...");
+			index.save(path)?;
+		}
 	}
 	Ok(())
 }

@@ -23,11 +23,15 @@ use serde::Serialize;
 // Among User-managed Collections.
 const BUF_SIZE: usize = 1024 * 8;
 
+fn file_size(files: &[entry::File]) -> u128 {
+	files.iter().map(|entry| entry.size).map(u128::from).sum()
+}
+
 #[derive(PartialEq, Eq, Hash)]
-struct DirStats {
-	file_count: usize,
-	file_size: u128,
-	dir_count: usize,
+pub struct DirStats {
+	pub file_count: usize,
+	pub file_size: u128,
+	pub dir_count: usize,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -268,10 +272,6 @@ impl Index {
 		self.files.len()
 	}
 
-	pub fn dirs_count(&self) -> usize {
-		self.dirs.len()
-	}
-
 	pub fn calculate_matches(
 		&mut self,
 		mut notifier: impl FnMut(&str),
@@ -404,12 +404,17 @@ impl Index {
 		matches
 	}
 
-	fn dir_stats(&self, dir: impl AsRef<Path>) -> DirStats {
-		let (start, end) = self.find_dir_files(&dir);
-		let mut file_size = 0;
-		for file in &self.files[start..end] {
-			file_size += u128::from(file.size);
+	pub fn stats(&self) -> DirStats {
+		DirStats {
+			file_count: self.files.len(),
+			file_size: file_size(&self.files),
+			dir_count: self.dirs.len(),
 		}
+	}
+
+	pub fn dir_stats(&self, dir: impl AsRef<Path>) -> DirStats {
+		let (start, end) = self.find_dir_files(&dir);
+		let file_size = file_size(&self.files[start..end]);
 
 		let dir_count = if let Some((start, end)) = self.find_dir_children(&dir) {
 			end - start
