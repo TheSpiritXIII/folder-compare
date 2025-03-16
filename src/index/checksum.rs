@@ -33,10 +33,6 @@ impl Checksum {
 		self.sha512.is_empty()
 	}
 
-	pub fn reset(&mut self) {
-		self.sha512.clear();
-	}
-
 	pub fn calculate(&mut self, path: impl AsRef<Path>, buf: &mut Vec<u8>) -> io::Result<()> {
 		self.sha512 = sha512_checksum(path, buf)?;
 		Ok(())

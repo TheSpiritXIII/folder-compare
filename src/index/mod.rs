@@ -31,11 +31,11 @@ struct DirStats {
 	dir_count: usize,
 }
 
-#[derive(PartialEq, Eq, Hash)]
-struct Root {
-	files: Vec<entry::File>,
-	dirs: Vec<entry::Dir>,
-}
+// #[derive(PartialEq, Eq, Hash)]
+// struct Root {
+// 	files: Vec<entry::File>,
+// 	dirs: Vec<entry::Dir>,
+// }
 
 #[derive(Serialize, Deserialize)]
 pub struct Index {
@@ -279,7 +279,6 @@ impl Index {
 		}
 
 		let mut file_matched = vec![false; self.files.len()];
-		let mut buf = Vec::with_capacity(BUF_SIZE);
 		for path_list in file_index_by_size.values() {
 			if path_list.len() < 2 {
 				continue;
@@ -337,6 +336,7 @@ impl Index {
 			}
 		}
 
+		let mut buf = Vec::with_capacity(BUF_SIZE);
 		for (file_index, matched) in file_matched.iter().enumerate() {
 			let file = &mut self.files[file_index];
 			notifier(file.meta.path());
@@ -349,7 +349,6 @@ impl Index {
 				self.dirty = true;
 			}
 		}
-
 		Ok(())
 	}
 
@@ -398,47 +397,64 @@ impl Index {
 		}
 	}
 
-	fn sub_index(&self, dir: impl AsRef<Path>) -> Root {
-		let (start, end) = self.find_dir_files(&dir);
-		let p = normalized_path(&dir);
-		let mut file_names = Vec::with_capacity(end - start);
-		for file in &self.files[start..end] {
-			file_names.push(entry::File {
-				meta: Metadata {
-					path: file.meta.path()[(p.len() + 1)..].to_string(),
-					..file.meta.clone()
-				},
-				..file.clone()
-			});
-		}
-		let dir_list = if let Some((start, end)) = self.find_dir_children(&dir) {
-			let mut dir_list = Vec::with_capacity(end - start);
-			for dir in &self.dirs[start..end] {
-				dir_list.push(entry::Dir {
-					meta: Metadata {
-						path: dir.meta.path()[(p.len() + 1)..].to_string(),
-						..dir.meta.clone()
-					},
-				});
-			}
-			dir_list
-		} else {
-			Vec::new()
-		};
-		Root {
-			files: file_names,
-			dirs: dir_list,
-		}
-	}
+	// fn sub_index(&self, dir: impl AsRef<Path>) -> Root {
+	// 	let (start, end) = self.find_dir_files(&dir);
+	// 	let p = normalized_path(&dir);
+	// 	let mut file_names = Vec::with_capacity(end - start);
+	// 	for file in &self.files[start..end] {
+	// 		file_names.push(entry::File {
+	// 			meta: Metadata {
+	// 				path: file.meta.path()[(p.len() + 1)..].to_string(),
+	// 				..file.meta.clone()
+	// 			},
+	// 			..file.clone()
+	// 		});
+	// 	}
+	// 	let dir_list = if let Some((start, end)) = self.find_dir_children(&dir) {
+	// 		let mut dir_list = Vec::with_capacity(end - start);
+	// 		for dir in &self.dirs[start..end] {
+	// 			dir_list.push(entry::Dir {
+	// 				meta: Metadata {
+	// 					path: dir.meta.path()[(p.len() + 1)..].to_string(),
+	// 					..dir.meta.clone()
+	// 				},
+	// 			});
+	// 		}
+	// 		dir_list
+	// 	} else {
+	// 		Vec::new()
+	// 	};
+	// 	Root {
+	// 		files: file_names,
+	// 		dirs: dir_list,
+	// 	}
+	// }
 
-	pub fn duplicate_dirs(
+	// fn dir_files(&self, dir: impl AsRef<Path>) -> &[entry::File] {
+	// 	let (start, end) = self.find_dir_files(&dir);
+	// 	&self.files[start..end]
+	// }
+
+	// fn dir_checksum(&self, dir: impl AsRef<Path>) -> Vec<Checksum> {
+	// 	let (start, end) = self.find_dir_files(&dir);
+	// 	let mut file_checksums = Vec::with_capacity(end - start);
+	// 	for file in &self.files[start..end] {
+	// 		file_checksums.push(file.checksum.clone());
+	// 	}
+	// 	file_checksums.sort();
+	// 	file_checksums
+	// }
+
+	pub fn calculate_dir_matches(
 		&mut self,
+		mut notifier: impl FnMut(&str),
 		filter: Option<&Regex>,
+		match_name: bool,
 		match_created: bool,
 		match_modified: bool,
-	) -> Vec<Vec<String>> {
-		let mut dirs_by_stats = HashMap::<DirStats, Vec<String>>::new();
-		for dir in &self.dirs {
+	) -> io::Result<()> {
+		let mut dirs_by_stats = HashMap::<DirStats, Vec<usize>>::new();
+		for (dir_index, dir) in self.dirs.iter().enumerate() {
 			let stats = self.dir_stats(dir.meta.path());
 			if stats.dir_count == 0 && stats.file_count == 0 {
 				continue;
@@ -448,41 +464,122 @@ impl Index {
 					continue;
 				}
 			}
-			dirs_by_stats.entry(stats).or_default().push(dir.meta.path().to_string());
+			dirs_by_stats.entry(stats).or_default().push(dir_index);
+		}
+
+		let mut file_matched = vec![false; self.files.len()];
+		for (_, path_list) in dirs_by_stats {
+			if path_list.len() < 2 {
+				continue;
+			}
+			let mut name_by_count = HashMap::<Vec<String>, usize>::new();
+			let mut created_by_count = HashMap::<Vec<SystemTime>, usize>::new();
+			let mut modified_by_count = HashMap::<Vec<SystemTime>, usize>::new();
+			let mut name_list = vec![Vec::new(); path_list.len()];
+			let mut created_list = vec![Vec::new(); path_list.len()];
+			let mut modified_list = vec![Vec::new(); path_list.len()];
+			for dir_index in &path_list {
+				let dir = &self.dirs[*dir_index];
+				let (start, end) = self.find_dir_files(dir.meta.path());
+				let file_list = &self.files[start..end];
+				if match_name {
+					name_list[*dir_index] =
+						file_list.iter().map(|entry| entry.meta.path().to_string()).collect();
+					name_list[*dir_index].sort();
+					name_by_count
+						.entry(name_list[*dir_index].clone())
+						.and_modify(|count| *count += 1)
+						.or_insert(1);
+				}
+				if match_created {
+					created_list[*dir_index] =
+						file_list.iter().map(|entry| entry.meta.created_time).collect();
+					created_list[*dir_index].sort();
+					created_by_count
+						.entry(created_list[*dir_index].clone())
+						.and_modify(|count| *count += 1)
+						.or_insert(1);
+				}
+				if match_modified {
+					modified_list[*dir_index] =
+						file_list.iter().map(|entry| entry.meta.created_time).collect();
+					modified_list[*dir_index].sort();
+					modified_by_count
+						.entry(modified_list[*dir_index].clone())
+						.and_modify(|count| *count += 1)
+						.or_insert(1);
+				}
+			}
+
+			for dir_index in &path_list {
+				let dir = &self.dirs[*dir_index];
+				if match_name {
+					if let Some(count) = name_by_count.get(&name_list[*dir_index]) {
+						if *count < 2 {
+							continue;
+						}
+					}
+				}
+				if match_created {
+					if let Some(count) = created_by_count.get(&created_list[*dir_index]) {
+						if *count < 2 {
+							continue;
+						}
+					}
+				}
+				if match_modified {
+					if let Some(count) = modified_by_count.get(&modified_list[*dir_index]) {
+						if *count < 2 {
+							continue;
+						}
+					}
+				}
+
+				let (start, end) = self.find_dir_files(dir.meta.path());
+				for matched in file_matched.iter_mut().take(end).skip(start) {
+					*matched = true;
+				}
+			}
+		}
+
+		let mut buf = Vec::with_capacity(BUF_SIZE);
+		for (file_index, matched) in file_matched.iter().enumerate() {
+			let file = &mut self.files[file_index];
+			notifier(file.meta.path());
+			if !matched {
+				continue;
+			}
+
+			if file.checksum.is_empty() {
+				file.checksum.calculate(file.meta.path(), &mut buf)?;
+				self.dirty = true;
+			}
+		}
+		Ok(())
+	}
+
+	pub fn duplicate_dirs(&mut self, filter: Option<&Regex>) -> Vec<Vec<String>> {
+		let mut dirs_by_checksums = HashMap::<Vec<Checksum>, Vec<String>>::new();
+		for dir in &self.dirs {
+			if let Some(filter) = filter {
+				if !filter.is_match(dir.meta.path()) {
+					continue;
+				}
+			}
+			let (start, end) = self.find_dir_files(dir.meta.path());
+			let file_list = &self.files[start..end];
+			let mut file_checksums = Vec::with_capacity(end - start);
+			for file in file_list {
+				file_checksums.push(file.checksum.clone());
+			}
+			file_checksums.sort();
+			dirs_by_checksums.entry(file_checksums).or_default().push(dir.meta.path().to_string());
 		}
 
 		let mut matches = Vec::new();
-		for (_, path_list) in dirs_by_stats {
+		for (_, path_list) in dirs_by_checksums {
 			if path_list.len() > 1 {
-				let mut dirs_by_entry_names = HashMap::<Root, Vec<String>>::new();
-
-				for path in path_list {
-					let mut root = self.sub_index(&path);
-					for file in &mut root.files {
-						file.checksum.reset();
-						if !match_created {
-							file.meta.created_time = SystemTime::UNIX_EPOCH;
-						}
-						if !match_modified {
-							file.meta.modified_time = SystemTime::UNIX_EPOCH;
-						}
-					}
-					for dir in &mut root.dirs {
-						if !match_created {
-							dir.meta.created_time = SystemTime::UNIX_EPOCH;
-						}
-						if !match_modified {
-							dir.meta.modified_time = SystemTime::UNIX_EPOCH;
-						}
-					}
-					dirs_by_entry_names.entry(root).or_default().push(path);
-				}
-
-				for (_, path_list) in dirs_by_entry_names {
-					if path_list.len() > 1 {
-						matches.push(path_list);
-					}
-				}
+				matches.push(path_list);
 			}
 		}
 		matches

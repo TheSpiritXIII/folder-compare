@@ -3,7 +3,6 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use regex::Regex;
@@ -28,10 +27,31 @@ pub fn duplicates(
 
 	let duplicates = if dirs {
 		println!("Comparing dirs...");
-		if !match_name || match_created || match_modified {
-			bail!("Only --match-name is supported so far. Sorry. :(");
-		}
-		index.duplicate_dirs(filter, match_created, match_modified)
+		let total = index.file_count();
+		let mut current = 0usize;
+		let mut countdown = CountdownTimer::new(Duration::from_secs(1));
+		let mut last_path = String::new();
+		index
+			.calculate_dir_matches(
+				|path| {
+					last_path = path.to_string();
+					current += 1;
+					if countdown.passed() {
+						clear_line();
+						let percent = percentage(current, total);
+						print!("Processed {current} of {total} entries ({percent}%)...: {path}");
+						io::stdout().flush().unwrap();
+					}
+				},
+				filter,
+				match_name,
+				match_created,
+				match_modified,
+			)
+			.with_context(|| format!("Comparison failed during dir: {last_path}"))?;
+
+		println!("Gathering duplicates...");
+		index.duplicate_dirs(filter)
 	} else {
 		println!("Comparing files...");
 		let total = index.file_count();
