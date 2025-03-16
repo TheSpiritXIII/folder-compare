@@ -554,7 +554,7 @@ impl Index {
 		allowlist: Option<&Regex>,
 		denylist: Option<&Regex>,
 	) -> Vec<Vec<String>> {
-		let mut dirs_by_checksums = HashMap::<Vec<Checksum>, Vec<String>>::new();
+		let mut dirs_by_checksums = HashMap::<(usize, Vec<Checksum>), Vec<String>>::new();
 		for dir in &self.dirs {
 			if let Some(filter) = allowlist {
 				if !filter.is_match(dir.meta.path()) {
@@ -573,7 +573,16 @@ impl Index {
 				file_checksums.push(file.checksum.clone());
 			}
 			file_checksums.sort();
-			dirs_by_checksums.entry(file_checksums).or_default().push(dir.meta.path().to_string());
+
+			let children = if let Some((start, end)) = self.find_dir_children(dir.meta.path()) {
+				end - start
+			} else {
+				0
+			};
+			dirs_by_checksums
+				.entry((children, file_checksums))
+				.or_default()
+				.push(dir.meta.path().to_string());
 		}
 
 		let mut matches = Vec::new();
