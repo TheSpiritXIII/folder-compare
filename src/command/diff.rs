@@ -7,8 +7,8 @@ use std::time::Duration;
 use anyhow::Context;
 use anyhow::Result;
 
-use crate::index::Diff;
-use crate::index::Index;
+use crate::store::Diff;
+use crate::store::Index;
 use crate::util::display::percentage;
 use crate::util::terminal::clear_line;
 use crate::util::timer::CountdownTimer;

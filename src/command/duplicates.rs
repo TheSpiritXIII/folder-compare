@@ -7,7 +7,7 @@ use anyhow::Context;
 use anyhow::Result;
 use regex::Regex;
 
-use crate::index;
+use crate::store;
 use crate::util::display::percentage;
 use crate::util::terminal::clear_line;
 use crate::util::timer::CountdownTimer;
@@ -23,7 +23,7 @@ pub fn duplicates(
 	match_modified: bool,
 ) -> Result<()> {
 	println!("Opening index file...");
-	let mut index = index::Index::open(index_file)
+	let mut index = store::Index::open(index_file)
 		.with_context(|| format!("Unable to open index: {}", index_file.display()))?;
 
 	let duplicates = if dirs {

@@ -1,7 +1,7 @@
 #![warn(clippy::pedantic)]
 
 mod command;
-mod index;
+mod store;
 mod util;
 
 use std::env;

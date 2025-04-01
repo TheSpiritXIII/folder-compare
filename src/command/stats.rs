@@ -7,7 +7,7 @@ use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 
-use crate::index::Index;
+use crate::store::Index;
 use crate::util::terminal::clear_line;
 use crate::util::timer::CountdownTimer;
 

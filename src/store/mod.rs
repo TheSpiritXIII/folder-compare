@@ -25,10 +25,6 @@ use sub_index::SubIndex;
 // Among User-managed Collections.
 const BUF_SIZE: usize = 1024 * 8;
 
-fn file_size(files: &[entry::File]) -> u128 {
-	files.iter().map(|entry| entry.size).map(u128::from).sum()
-}
-
 #[derive(PartialEq, Eq, Hash)]
 pub struct DirStats {
 	pub file_count: usize,
@@ -423,19 +419,17 @@ impl Index {
 	}
 
 	fn dir_stats(&self, dir: impl AsRef<Path>) -> DirStats {
-		let (start, end) = self.find_dir_files(&dir);
-		let file_size = file_size(&self.files[start..end]);
-
-		let dir_count = if let Some((start, end)) = self.find_dir_children(&dir) {
-			end - start
-		} else {
-			0
-		};
-
+		if let Some(sub_index) = self.sub_index(dir) {
+			return DirStats {
+				file_count: sub_index.file_count(),
+				file_size: sub_index.file_size(),
+				dir_count: sub_index.dir_count(),
+			};
+		}
 		DirStats {
-			file_count: end - start,
-			file_size,
-			dir_count,
+			file_count: 0,
+			file_size: 0,
+			dir_count: 1,
 		}
 	}
 
