@@ -43,18 +43,21 @@ pub fn stats(
 	};
 
 	clear_line();
-	let stats = if let Some(dir) = dir {
-		index.dir_stats(dir)
+	let sub_index = if let Some(dir) = dir {
+		let Some(sub_index) = index.sub_index(dir) else {
+			bail!("Invalid directory");
+		};
+		sub_index
 	} else {
-		index.stats()
+		index.all()
 	};
-	let count = stats.dir_count + stats.file_count;
+	let count = sub_index.entry_count();
 	println!("Found {count} total entries!");
-	let file_count = stats.file_count;
+	let file_count = sub_index.file_count();
 	println!("{file_count} files.");
-	let dir_count = stats.dir_count;
+	let dir_count = sub_index.dir_count();
 	println!("{dir_count} directories.");
-	let dir_count = stats.file_size;
+	let dir_count = sub_index.file_size();
 	println!("{dir_count} bytes.");
 
 	if let Some(path) = index_file {

@@ -1,6 +1,7 @@
 mod checksum;
 mod entry;
 mod metadata;
+mod sub_index;
 #[cfg(test)]
 mod test;
 
@@ -17,6 +18,7 @@ use metadata::normalized_path;
 use regex::Regex;
 use serde::Deserialize;
 use serde::Serialize;
+use sub_index::SubIndex;
 
 // Size of buffer to compare files, optimized for an 8 KiB average file-size.
 // Dinneen, Jesse & Nguyen, Ba. (2021). How Big Are Peoples' Computer Files? File Size Distributions
@@ -171,7 +173,7 @@ impl Index {
 		None
 	}
 
-	fn find_dirs(&mut self, path: impl AsRef<std::path::Path>) -> Option<(usize, usize)> {
+	fn find_dirs(&self, path: impl AsRef<std::path::Path>) -> Option<(usize, usize)> {
 		let mut p = normalized_path(path);
 		if p.is_empty() {
 			return Some((0, self.dirs.len()));
@@ -404,15 +406,23 @@ impl Index {
 		matches
 	}
 
-	pub fn stats(&self) -> DirStats {
-		DirStats {
-			file_count: self.files.len(),
-			file_size: file_size(&self.files),
-			dir_count: self.dirs.len(),
+	pub fn all(&self) -> SubIndex {
+		SubIndex {
+			files: &self.files,
+			dirs: &self.dirs,
 		}
 	}
 
-	pub fn dir_stats(&self, dir: impl AsRef<Path>) -> DirStats {
+	pub fn sub_index(&self, dir: impl AsRef<Path>) -> Option<SubIndex> {
+		let (dir_start, dir_end) = self.find_dir_children(&dir)?;
+		let (file_start, file_end) = self.find_dir_files(&dir);
+		Some(SubIndex {
+			files: &self.files[file_start..file_end],
+			dirs: &self.dirs[dir_start..dir_end],
+		})
+	}
+
+	fn dir_stats(&self, dir: impl AsRef<Path>) -> DirStats {
 		let (start, end) = self.find_dir_files(&dir);
 		let file_size = file_size(&self.files[start..end]);
 
