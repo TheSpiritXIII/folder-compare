@@ -22,6 +22,7 @@ impl SubIndex<'_> {
 		self.dirs.len()
 	}
 
+	/// Returns the total size of all files.
 	pub fn file_size(&self) -> u128 {
 		self.files.iter().map(|entry| entry.size).map(u128::from).sum()
 	}

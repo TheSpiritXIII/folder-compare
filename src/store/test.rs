@@ -5,7 +5,7 @@ use super::checksum::Checksum;
 use super::entry;
 use super::metadata::parent_str;
 use super::metadata::Metadata;
-use super::Index;
+use super::RootIndex;
 
 fn metadata_with_path(path: &str) -> Metadata {
 	Metadata {
@@ -41,8 +41,8 @@ fn dirs_from_files(files: &[entry::File]) -> Vec<entry::Dir> {
 	dir_list
 }
 
-fn new_test_index(files: Vec<entry::File>) -> Index {
-	let mut index = Index::new();
+fn new_test_index(files: Vec<entry::File>) -> RootIndex {
+	let mut index = RootIndex::new();
 	index.files = files;
 	index.dirs = dirs_from_files(&index.files);
 	index.normalize();

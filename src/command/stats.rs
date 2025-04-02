@@ -7,7 +7,7 @@ use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 
-use crate::store::Index;
+use crate::store::RootIndex;
 use crate::util::terminal::clear_line;
 use crate::util::timer::CountdownTimer;
 
@@ -30,14 +30,14 @@ pub fn stats(
 	};
 
 	let index = if let Some(path) = index_file {
-		let mut index = Index::open(path)
+		let mut index = RootIndex::open(path)
 			.with_context(|| format!("Unable to open index: {}", path.display()))?;
 		if let Some(path) = src {
 			index.add(std::path::absolute(path)?, update_fn)?;
 		}
 		index
 	} else if let Some(path) = src {
-		Index::from_path(std::path::absolute(path)?, update_fn)?
+		RootIndex::from_path(std::path::absolute(path)?, update_fn)?
 	} else {
 		bail!("Expected source or index-file");
 	};

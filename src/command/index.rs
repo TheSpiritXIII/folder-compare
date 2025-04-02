@@ -6,7 +6,7 @@ use std::time::Duration;
 use anyhow::Context;
 use anyhow::Result;
 
-use crate::store::Index;
+use crate::store::RootIndex;
 use crate::util::terminal::clear_line;
 use crate::util::timer::CountdownTimer;
 
@@ -26,14 +26,14 @@ pub fn index(src: &PathBuf, index_file: &PathBuf, sha_512: bool) -> Result<()> {
 
 	let mut index = if index_file.exists() {
 		println!("Opening index file...");
-		let mut index = Index::open(index_file)
+		let mut index = RootIndex::open(index_file)
 			.with_context(|| format!("Unable to open index: {}", index_file.display()))?;
 		println!("Updating index file...");
 		index.add(std::path::absolute(src)?, update_fn)?;
 		index
 	} else {
 		println!("Reading files...");
-		Index::from_path(std::path::absolute(src)?, update_fn)?
+		RootIndex::from_path(std::path::absolute(src)?, update_fn)?
 	};
 	clear_line();
 	println!("Discovered {current} total entries!");

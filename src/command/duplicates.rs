@@ -23,7 +23,7 @@ pub fn duplicates(
 	match_modified: bool,
 ) -> Result<()> {
 	println!("Opening index file...");
-	let mut index = store::Index::open(index_file)
+	let mut index = store::RootIndex::open(index_file)
 		.with_context(|| format!("Unable to open index: {}", index_file.display()))?;
 
 	let duplicates = if dirs {

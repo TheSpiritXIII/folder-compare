@@ -8,7 +8,7 @@ use anyhow::Context;
 use anyhow::Result;
 
 use crate::store::Diff;
-use crate::store::Index;
+use crate::store::RootIndex;
 use crate::util::display::percentage;
 use crate::util::terminal::clear_line;
 use crate::util::timer::CountdownTimer;
@@ -20,8 +20,8 @@ pub fn diff(
 	match_created: bool,
 	match_modified: bool,
 ) -> Result<()> {
-	let mut index_src = Index::new();
-	let mut index_dst = Index::new();
+	let mut index_src = RootIndex::new();
+	let mut index_dst = RootIndex::new();
 
 	thread::scope(|s| -> io::Result<()> {
 		let src_thread = s.spawn(|| -> io::Result<()> {
@@ -43,7 +43,7 @@ pub fn diff(
 			Ok(())
 		});
 
-		index_dst = Index::open(index_file)?;
+		index_dst = RootIndex::open(index_file)?;
 		src_thread.join().unwrap()?;
 
 		clear_line();
