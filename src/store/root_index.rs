@@ -11,6 +11,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use super::checksum::Checksum;
+use super::checksum::NativeFileReader;
 use super::entry;
 use super::metadata::normalized_path;
 use super::sub_index::SubIndex;
@@ -147,7 +148,10 @@ impl RootIndex {
 	}
 
 	// Removes the directory in the given path.
-	pub(super) fn remove_dir(&mut self, path: impl AsRef<std::path::Path>) -> Option<Vec<entry::File>> {
+	pub(super) fn remove_dir(
+		&mut self,
+		path: impl AsRef<std::path::Path>,
+	) -> Option<Vec<entry::File>> {
 		if let Some((start, end)) = self.find_dirs(&path) {
 			self.dirs.drain(start..end);
 			let (start, end) = self.find_dir_files(&path);
@@ -226,7 +230,7 @@ impl RootIndex {
 	pub fn calculate_all(&mut self) -> io::Result<()> {
 		let mut buf = Vec::with_capacity(BUF_SIZE);
 		for metadata in &mut self.files {
-			metadata.checksum.calculate(metadata.meta.path(), &mut buf)?;
+			metadata.checksum.calculate(&NativeFileReader, metadata.meta.path(), &mut buf)?;
 		}
 		self.dirty = true;
 		Ok(())
@@ -356,7 +360,7 @@ impl RootIndex {
 			}
 
 			if file.checksum.is_empty() {
-				file.checksum.calculate(file.meta.path(), &mut buf)?;
+				file.checksum.calculate(&NativeFileReader, file.meta.path(), &mut buf)?;
 				self.dirty = true;
 			}
 		}
@@ -541,7 +545,7 @@ impl RootIndex {
 			}
 
 			if file.checksum.is_empty() {
-				file.checksum.calculate(file.meta.path(), &mut buf)?;
+				file.checksum.calculate(&NativeFileReader, file.meta.path(), &mut buf)?;
 				self.dirty = true;
 			}
 		}
@@ -674,11 +678,19 @@ impl RootIndex {
 					}
 
 					if file_self.checksum.is_empty() {
-						file_self.checksum.calculate(file_self.meta.path(), &mut buf)?;
+						file_self.checksum.calculate(
+							&NativeFileReader,
+							file_self.meta.path(),
+							&mut buf,
+						)?;
 						self.dirty = true;
 					}
 					if file_other.checksum.is_empty() {
-						file_other.checksum.calculate(file_self.meta.path(), &mut buf)?;
+						file_other.checksum.calculate(
+							&NativeFileReader,
+							file_self.meta.path(),
+							&mut buf,
+						)?;
 						other.dirty = true;
 					}
 
