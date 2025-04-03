@@ -131,7 +131,7 @@ pub fn calculate_dir_matches(
 				}
 			}
 
-			let (start, end) = index.find_dir_files(dir.meta.path());
+			let (start, end) = index.dir_file_indices(dir.meta.path());
 			for matched in file_matched.iter_mut().take(end).skip(start) {
 				*matched = true;
 			}

@@ -144,79 +144,19 @@ impl RootIndex {
 		&mut self,
 		path: impl AsRef<std::path::Path>,
 	) -> Option<Vec<entry::File>> {
-		if let Some((start, end)) = self.find_dirs(&path) {
-			self.dirs.drain(start..end);
-			let (start, end) = self.find_dir_files(&path);
-			return Some(self.files.drain(start..end).collect());
-		}
-		None
+		let p = normalized_path(path);
+		let start = self.all().dir_index(&p)?;
+		let (_, end) = self.all().dir_children_indices(start);
+		Some(self.files.drain(start..end).collect())
 	}
 
 	// Removes the file in the given path.
 	pub(super) fn remove_file(&mut self, path: impl AsRef<std::path::Path>) -> Option<entry::File> {
-		if let Some(index) = self.find_file(path) {
+		let p = normalized_path(path);
+		if let Some(index) = self.all().file_index(&p) {
 			return Some(self.files.remove(index));
 		}
 		None
-	}
-
-	fn find_dirs(&self, path: impl AsRef<std::path::Path>) -> Option<(usize, usize)> {
-		let mut p = normalized_path(path);
-		if p.is_empty() {
-			return Some((0, self.dirs.len()));
-		}
-		let start = self.dirs.binary_search_by(|entry| entry.meta.path().cmp(&p)).ok()?;
-		let mut end = start + 1;
-		p.push('/');
-		for entry in &self.dirs[end..] {
-			if !entry.meta.path().starts_with(&p) {
-				break;
-			}
-			end += 1;
-		}
-		Some((start, end))
-	}
-
-	fn find_dir_children(&self, path: impl AsRef<std::path::Path>) -> Option<(usize, usize)> {
-		let p = normalized_path(path);
-		if p.is_empty() {
-			return Some((0, self.dirs.len()));
-		}
-
-		let start = self.dirs.binary_search_by(|entry| entry.meta.path().cmp(&p)).ok()? + 1;
-		let mut end = start;
-		for entry in &self.dirs[end..] {
-			if !entry.meta.path().starts_with(&p) {
-				break;
-			}
-			end += 1;
-		}
-		Some((start, end))
-	}
-
-	fn find_file(&mut self, path: impl AsRef<std::path::Path>) -> Option<usize> {
-		let p = normalized_path(path);
-		self.files.binary_search_by(|entry| entry.meta.path().cmp(&p)).ok()
-	}
-
-	fn find_dir_files(&self, path: impl AsRef<std::path::Path>) -> (usize, usize) {
-		let mut p = normalized_path(path);
-		if p.is_empty() {
-			return (0, self.files.len());
-		}
-		p.push('/');
-
-		let start = match self.files.binary_search_by(|entry| entry.meta.path().cmp(&p)) {
-			Ok(index) | Err(index) => index,
-		};
-		let mut end = start;
-		for entry in &self.files[start..] {
-			if !entry.meta.path().starts_with(&p) {
-				break;
-			}
-			end += 1;
-		}
-		(start, end)
 	}
 
 	pub fn calculate_all(&mut self) -> io::Result<()> {
@@ -298,8 +238,10 @@ impl RootIndex {
 	}
 
 	pub fn sub_index(&self, dir: impl AsRef<Path>) -> Option<SubIndex> {
-		let (dir_start, dir_end) = self.find_dir_children(&dir)?;
-		let (file_start, file_end) = self.find_dir_files(&dir);
+		let p = normalized_path(dir);
+		let dir_index = self.all().dir_index(&p)?;
+		let (dir_start, dir_end) = self.all().dir_children_indices(dir_index);
+		let (file_start, file_end) = self.all().dir_file_indices(&p);
 		Some(SubIndex {
 			files: &self.files[file_start..file_end],
 			dirs: &self.dirs[dir_start..dir_end],
