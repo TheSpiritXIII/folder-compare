@@ -38,8 +38,8 @@ impl SubIndex<'_> {
 		let dir = &self.dirs[dir_index];
 		// Don't include itself in the sub-index.
 		let dir_start = dir_index + 1;
-		let mut dir_end = dir_start + 1;
-		for entry in &self.dirs[dir_end..] {
+		let mut dir_end = dir_start;
+		for entry in &self.dirs[dir_start..] {
 			if !entry.meta.is_child_of(dir.meta.path()) {
 				break;
 			}
@@ -72,7 +72,7 @@ impl SubIndex<'_> {
 
 	// Returns the sub-index of the given directory index.
 	pub fn sub_index(&self, dir_index: usize) -> SubIndex {
-		debug_assert!(dir_index >= self.dirs.len());
+		debug_assert!(dir_index < self.dirs.len());
 
 		let dir = &self.dirs[dir_index];
 

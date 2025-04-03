@@ -5,6 +5,8 @@ mod metadata;
 mod root_index;
 mod sub_index;
 #[cfg(test)]
+mod sub_index_test;
+#[cfg(test)]
 mod test;
 
 pub use calculator::Diff;
