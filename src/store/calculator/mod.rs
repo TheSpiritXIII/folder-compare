@@ -1,4 +1,5 @@
 mod diff;
+mod duplicate_files;
 
-pub use diff::diff;
-pub use diff::Diff;
+pub use diff::*;
+pub use duplicate_files::*;
