@@ -27,7 +27,7 @@ impl SubIndex<'_> {
 		self.files.iter().map(|entry| entry.size).map(u128::from).sum()
 	}
 
-	fn find_dir_files(&self, p: &str) -> (usize, usize) {
+	pub(super) fn find_dir_files(&self, p: &str) -> (usize, usize) {
 		if p.is_empty() {
 			return (0, self.files.len());
 		}

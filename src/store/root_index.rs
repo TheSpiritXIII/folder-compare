@@ -4,28 +4,21 @@ use std::collections::VecDeque;
 use std::fs::{self};
 use std::io::{self};
 use std::path::Path;
-use std::time::SystemTime;
 
 use regex::Regex;
 use serde::Deserialize;
 use serde::Serialize;
 
+use super::calculator::calculate_dir_matches;
 use super::calculator::calculate_matches;
 use super::calculator::diff;
+use super::calculator::duplicate_dirs;
 use super::calculator::duplicates;
-use super::checksum::Checksum;
 use super::checksum::NativeFileReader;
 use super::entry;
 use super::metadata::normalized_path;
 use super::sub_index::SubIndex;
 use super::Diff;
-
-#[derive(PartialEq, Eq, Hash)]
-pub struct DirStats {
-	pub file_count: usize,
-	pub file_size: u128,
-	pub dir_count: usize,
-}
 
 #[derive(Serialize, Deserialize)]
 pub struct RootIndex {
@@ -313,185 +306,37 @@ impl RootIndex {
 		})
 	}
 
-	fn dir_stats(&self, dir: impl AsRef<Path>) -> DirStats {
-		if let Some(sub_index) = self.sub_index(dir) {
-			return DirStats {
-				file_count: sub_index.file_count(),
-				file_size: sub_index.file_size(),
-				dir_count: sub_index.dir_count(),
-			};
-		}
-		DirStats {
-			file_count: 0,
-			file_size: 0,
-			dir_count: 1,
-		}
-	}
-
 	#[allow(clippy::too_many_lines)]
 	pub fn calculate_dir_matches(
 		&mut self,
-		mut notifier: impl FnMut(&str),
+		notifier: impl FnMut(&str),
 		allowlist: Option<&Regex>,
 		denylist: Option<&Regex>,
 		match_name: bool,
 		match_created: bool,
 		match_modified: bool,
 	) -> io::Result<()> {
-		let mut dirs_by_stats = HashMap::<DirStats, Vec<usize>>::new();
-		for (dir_index, dir) in self.dirs.iter().enumerate() {
-			let stats = self.dir_stats(dir.meta.path());
-			if stats.dir_count == 0 && stats.file_count == 0 {
-				continue;
-			}
-			if let Some(filter) = allowlist {
-				if !filter.is_match(dir.meta.path()) {
-					continue;
-				}
-			}
-			if let Some(filter) = denylist {
-				if filter.is_match(dir.meta.path()) {
-					continue;
-				}
-			}
-			dirs_by_stats.entry(stats).or_default().push(dir_index);
-		}
-
-		let mut file_matched = vec![false; self.files.len()];
-		for (_, path_list) in dirs_by_stats {
-			if path_list.len() < 2 {
-				continue;
-			}
-			let mut name_by_count = HashMap::<Vec<String>, usize>::new();
-			let mut created_by_count = HashMap::<Vec<SystemTime>, usize>::new();
-			let mut modified_by_count = HashMap::<Vec<SystemTime>, usize>::new();
-			let mut name_list = vec![Vec::new(); path_list.len()];
-			let mut created_list = vec![Vec::new(); path_list.len()];
-			let mut modified_list = vec![Vec::new(); path_list.len()];
-			let all = self.all();
-			for dir_index in &path_list {
-				let sub_index = all.sub_index(*dir_index);
-				let file_list = sub_index.files;
-				if match_name {
-					name_list[*dir_index] =
-						file_list.iter().map(|entry| entry.meta.path().to_string()).collect();
-					name_list[*dir_index].sort();
-					name_by_count
-						.entry(name_list[*dir_index].clone())
-						.and_modify(|count| *count += 1)
-						.or_insert(1);
-				}
-				if match_created {
-					created_list[*dir_index] =
-						file_list.iter().map(|entry| entry.meta.created_time).collect();
-					created_list[*dir_index].sort();
-					created_by_count
-						.entry(created_list[*dir_index].clone())
-						.and_modify(|count| *count += 1)
-						.or_insert(1);
-				}
-				if match_modified {
-					modified_list[*dir_index] =
-						file_list.iter().map(|entry| entry.meta.created_time).collect();
-					modified_list[*dir_index].sort();
-					modified_by_count
-						.entry(modified_list[*dir_index].clone())
-						.and_modify(|count| *count += 1)
-						.or_insert(1);
-				}
-			}
-
-			for dir_index in &path_list {
-				let dir = &self.dirs[*dir_index];
-				if match_name {
-					if let Some(count) = name_by_count.get(&name_list[*dir_index]) {
-						if *count < 2 {
-							continue;
-						}
-					}
-				}
-				if match_created {
-					if let Some(count) = created_by_count.get(&created_list[*dir_index]) {
-						if *count < 2 {
-							continue;
-						}
-					}
-				}
-				if match_modified {
-					if let Some(count) = modified_by_count.get(&modified_list[*dir_index]) {
-						if *count < 2 {
-							continue;
-						}
-					}
-				}
-
-				let (start, end) = self.find_dir_files(dir.meta.path());
-				for matched in file_matched.iter_mut().take(end).skip(start) {
-					*matched = true;
-				}
-			}
-		}
-
-		let mut buf = Vec::with_capacity(super::BUF_SIZE);
-		for (file_index, matched) in file_matched.iter().enumerate() {
-			let file = &mut self.files[file_index];
-			notifier(file.meta.path());
-			if !matched {
-				continue;
-			}
-
-			if file.checksum.is_empty() {
-				file.checksum.calculate(&NativeFileReader, file.meta.path(), &mut buf)?;
-				self.dirty = true;
-			}
-		}
-		Ok(())
+		calculate_dir_matches(
+			&mut self.files,
+			&mut self.dirs,
+			&mut self.dirty,
+			notifier,
+			allowlist,
+			denylist,
+			match_name,
+			match_created,
+			match_modified,
+		)
 	}
 
 	pub fn duplicate_dirs(
-		&mut self,
+		&self,
 		allowlist: Option<&Regex>,
 		denylist: Option<&Regex>,
 	) -> Vec<Vec<String>> {
-		let all = self.all();
-		let mut dirs_by_checksums = HashMap::<(usize, Vec<Checksum>), Vec<String>>::new();
-		for (dir_index, dir) in self.dirs.iter().enumerate() {
-			if let Some(filter) = allowlist {
-				if !filter.is_match(dir.meta.path()) {
-					continue;
-				}
-			}
-			if let Some(filter) = denylist {
-				if filter.is_match(dir.meta.path()) {
-					continue;
-				}
-			}
-
-			let sub_index = all.sub_index(dir_index);
-			let file_list = sub_index.files;
-			let mut file_checksums = Vec::with_capacity(file_list.len());
-			for file in file_list {
-				file_checksums.push(file.checksum.clone());
-			}
-			file_checksums.sort();
-
-			let children = sub_index.dirs.len();
-			dirs_by_checksums
-				.entry((children, file_checksums))
-				.or_default()
-				.push(dir.meta.path().to_string());
-		}
-
-		let mut matches = Vec::new();
-		for (_, path_list) in dirs_by_checksums {
-			if path_list.len() > 1 {
-				matches.push(path_list);
-			}
-		}
-		matches
+		duplicate_dirs(&self.all(), allowlist, denylist)
 	}
 
-	#[allow(clippy::too_many_lines)]
 	pub fn diff(
 		&mut self,
 		other: &mut RootIndex,
