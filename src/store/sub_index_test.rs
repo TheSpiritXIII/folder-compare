@@ -65,7 +65,7 @@ fn test_store() -> TestStore {
 }
 
 #[test]
-fn test_sub_index_empty_deeply_nested() {
+fn test_sub_index_empty_nested_root() {
 	let store = test_store();
 	let index = store.index();
 	let dir_index = index.dir_index("abc").unwrap();
@@ -75,7 +75,7 @@ fn test_sub_index_empty_deeply_nested() {
 }
 
 #[test]
-fn test_sub_index_empty_nested() {
+fn test_sub_index_empty_nested_leaf() {
 	let store = test_store();
 	let index = store.index();
 	let dir_index = index.dir_index("abc/xyz").unwrap();
@@ -115,7 +115,7 @@ fn test_sub_index_deeply_nested_leaf() {
 }
 
 #[test]
-fn test_sub_index_empty_nested_child() {
+fn test_sub_index_nested_child_empty() {
 	let store = test_store();
 	let index = store.index();
 	let dir_index = index.dir_index("foo/empty").unwrap();

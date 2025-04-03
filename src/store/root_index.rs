@@ -145,8 +145,15 @@ impl RootIndex {
 		path: impl AsRef<std::path::Path>,
 	) -> Option<Vec<entry::File>> {
 		let p = normalized_path(path);
+		if p.is_empty() {
+			self.dirs.clear();
+			return Some(self.files.drain(0..self.files.len()).collect());
+		}
 		let start = self.all().dir_index(&p)?;
 		let (_, end) = self.all().dir_children_indices(start);
+		self.dirs.drain(start..end);
+
+		let (start, end) = self.all().dir_file_indices(&p);
 		Some(self.files.drain(start..end).collect())
 	}
 

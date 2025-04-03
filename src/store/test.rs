@@ -2,7 +2,8 @@ use std::collections::HashSet;
 use std::time::SystemTime;
 
 use super::checksum::Checksum;
-use super::entry;
+use super::entry::Dir;
+use super::entry::File;
 use super::metadata::parent_str;
 use super::metadata::Metadata;
 use super::RootIndex;
@@ -15,7 +16,7 @@ fn metadata_with_path(path: &str) -> Metadata {
 	}
 }
 
-fn dirs_from_files(files: &[entry::File]) -> Vec<entry::Dir> {
+fn dirs_from_files(files: &[File]) -> Vec<Dir> {
 	let mut dir_set = HashSet::new();
 	for file in files {
 		if let Some(mut parent) = file.meta.parent() {
@@ -34,14 +35,22 @@ fn dirs_from_files(files: &[entry::File]) -> Vec<entry::Dir> {
 	}
 	let mut dir_list = Vec::new();
 	for dir in dir_set {
-		dir_list.push(entry::Dir {
+		dir_list.push(Dir {
 			meta: metadata_with_path(&dir),
 		});
 	}
 	dir_list
 }
 
-fn new_test_index(files: Vec<entry::File>) -> RootIndex {
+fn file_with_path(path: &str) -> File {
+	File {
+		meta: metadata_with_path(path),
+		size: 1,
+		checksum: Checksum::new(),
+	}
+}
+
+fn new_test_index(files: Vec<File>) -> RootIndex {
 	let mut index = RootIndex::new();
 	index.files = files;
 	index.dirs = dirs_from_files(&index.files);
@@ -60,13 +69,7 @@ fn test_remove_file_empty() {
 
 #[test]
 fn test_remove_file_single() {
-	let mut index = new_test_index(vec![
-		entry::File {
-			meta: metadata_with_path("a.txt"),
-			size: 1,
-			checksum: Checksum::new(),
-		},
-	]);
+	let mut index = new_test_index(vec![file_with_path("a.txt")]);
 	index.remove_file("a.txt");
 	assert_eq!(index.files.len(), 0);
 	assert_eq!(index.dirs.len(), 1);
@@ -75,7 +78,7 @@ fn test_remove_file_single() {
 #[test]
 fn test_remove_file_single_nested() {
 	let mut index = new_test_index(vec![
-		entry::File {
+		File {
 			meta: metadata_with_path("foo/a.txt"),
 			size: 1,
 			checksum: Checksum::new(),
@@ -89,21 +92,9 @@ fn test_remove_file_single_nested() {
 #[test]
 fn test_remove_file_multiple() {
 	let mut index = new_test_index(vec![
-		entry::File {
-			meta: metadata_with_path("a.txt"),
-			size: 1,
-			checksum: Checksum::new(),
-		},
-		entry::File {
-			meta: metadata_with_path("b.txt"),
-			size: 2,
-			checksum: Checksum::new(),
-		},
-		entry::File {
-			meta: metadata_with_path("c.txt"),
-			size: 3,
-			checksum: Checksum::new(),
-		},
+		file_with_path("a.txt"),
+		file_with_path("b.txt"),
+		file_with_path("c.txt"),
 	]);
 	index.remove_file("b.txt");
 	assert_eq!(index.files.len(), 2);
@@ -115,17 +106,17 @@ fn test_remove_file_multiple() {
 #[test]
 fn test_remove_file_multiple_nested() {
 	let mut index = new_test_index(vec![
-		entry::File {
+		File {
 			meta: metadata_with_path("foo/a.txt"),
 			size: 1,
 			checksum: Checksum::new(),
 		},
-		entry::File {
+		File {
 			meta: metadata_with_path("foo/b.txt"),
 			size: 2,
 			checksum: Checksum::new(),
 		},
-		entry::File {
+		File {
 			meta: metadata_with_path("bar/c.txt"),
 			size: 3,
 			checksum: Checksum::new(),
@@ -141,12 +132,8 @@ fn test_remove_file_multiple_nested() {
 #[test]
 fn test_remove_file_nonexistent() {
 	let mut index = new_test_index(vec![
-		entry::File {
-			meta: metadata_with_path("a.txt"),
-			size: 1,
-			checksum: Checksum::new(),
-		},
-		entry::File {
+		file_with_path("a.txt"),
+		File {
 			meta: metadata_with_path("foo/b.txt"),
 			size: 2,
 			checksum: Checksum::new(),
@@ -163,21 +150,9 @@ fn test_remove_file_nonexistent() {
 #[test]
 fn test_remove_file_first() {
 	let mut index = new_test_index(vec![
-		entry::File {
-			meta: metadata_with_path("a.txt"),
-			size: 1,
-			checksum: Checksum::new(),
-		},
-		entry::File {
-			meta: metadata_with_path("b.txt"),
-			size: 2,
-			checksum: Checksum::new(),
-		},
-		entry::File {
-			meta: metadata_with_path("c.txt"),
-			size: 3,
-			checksum: Checksum::new(),
-		},
+		file_with_path("a.txt"),
+		file_with_path("b.txt"),
+		file_with_path("c.txt"),
 	]);
 	index.remove_file("a.txt");
 	assert_eq!(index.files.len(), 2);
@@ -189,21 +164,9 @@ fn test_remove_file_first() {
 #[test]
 fn test_remove_file_last() {
 	let mut index = new_test_index(vec![
-		entry::File {
-			meta: metadata_with_path("a.txt"),
-			size: 1,
-			checksum: Checksum::new(),
-		},
-		entry::File {
-			meta: metadata_with_path("b.txt"),
-			size: 2,
-			checksum: Checksum::new(),
-		},
-		entry::File {
-			meta: metadata_with_path("c.txt"),
-			size: 3,
-			checksum: Checksum::new(),
-		},
+		file_with_path("a.txt"),
+		file_with_path("b.txt"),
+		file_with_path("c.txt"),
 	]);
 	index.remove_file("c.txt");
 	assert_eq!(index.files.len(), 2);
@@ -223,7 +186,7 @@ fn test_remove_dir_empty() {
 #[test]
 fn test_remove_dir_single() {
 	let mut index = new_test_index(vec![
-		entry::File {
+		File {
 			meta: metadata_with_path("foo/a.txt"),
 			size: 1,
 			checksum: Checksum::new(),
@@ -237,17 +200,17 @@ fn test_remove_dir_single() {
 #[test]
 fn test_remove_dir_multiple() {
 	let mut index = new_test_index(vec![
-		entry::File {
+		File {
 			meta: metadata_with_path("foo/a.txt"),
 			size: 1,
 			checksum: Checksum::new(),
 		},
-		entry::File {
+		File {
 			meta: metadata_with_path("foo/b.txt"),
 			size: 2,
 			checksum: Checksum::new(),
 		},
-		entry::File {
+		File {
 			meta: metadata_with_path("bar/c.txt"),
 			size: 3,
 			checksum: Checksum::new(),
@@ -262,12 +225,12 @@ fn test_remove_dir_multiple() {
 #[test]
 fn test_remove_dir_nonexistent() {
 	let mut index = new_test_index(vec![
-		entry::File {
+		File {
 			meta: metadata_with_path("foo/a.txt"),
 			size: 1,
 			checksum: Checksum::new(),
 		},
-		entry::File {
+		File {
 			meta: metadata_with_path("bar/b.txt"),
 			size: 2,
 			checksum: Checksum::new(),
@@ -281,17 +244,9 @@ fn test_remove_dir_nonexistent() {
 #[test]
 fn test_remove_dir_root() {
 	let mut index = new_test_index(vec![
-		entry::File {
-			meta: metadata_with_path("a.txt"),
-			size: 1,
-			checksum: Checksum::new(),
-		},
-		entry::File {
-			meta: metadata_with_path("b.txt"),
-			size: 2,
-			checksum: Checksum::new(),
-		},
-		entry::File {
+		file_with_path("a.txt"),
+		file_with_path("b.txt"),
+		File {
 			meta: metadata_with_path("foo/c.txt"),
 			size: 3,
 			checksum: Checksum::new(),
@@ -305,21 +260,17 @@ fn test_remove_dir_root() {
 #[test]
 fn test_remove_dir_nested() {
 	let mut index = new_test_index(vec![
-		entry::File {
+		File {
 			meta: metadata_with_path("foo/bar/a.txt"),
 			size: 1,
 			checksum: Checksum::new(),
 		},
-		entry::File {
+		File {
 			meta: metadata_with_path("foo/b.txt"),
 			size: 2,
 			checksum: Checksum::new(),
 		},
-		entry::File {
-			meta: metadata_with_path("c.txt"),
-			size: 3,
-			checksum: Checksum::new(),
-		},
+		file_with_path("c.txt"),
 	]);
 	index.remove_dir("foo/bar");
 	assert_eq!(index.files.len(), 2);
@@ -331,21 +282,17 @@ fn test_remove_dir_nested() {
 #[test]
 fn test_remove_dir_nested_children() {
 	let mut index = new_test_index(vec![
-		entry::File {
+		File {
 			meta: metadata_with_path("foo/bar/baz/a.txt"),
 			size: 1,
 			checksum: Checksum::new(),
 		},
-		entry::File {
+		File {
 			meta: metadata_with_path("foo/bar/b.txt"),
 			size: 2,
 			checksum: Checksum::new(),
 		},
-		entry::File {
-			meta: metadata_with_path("c.txt"),
-			size: 3,
-			checksum: Checksum::new(),
-		},
+		file_with_path("c.txt"),
 	]);
 	index.remove_dir("foo");
 	assert_eq!(index.files.len(), 1);
