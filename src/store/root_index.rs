@@ -368,10 +368,10 @@ impl RootIndex {
 			let mut name_list = vec![Vec::new(); path_list.len()];
 			let mut created_list = vec![Vec::new(); path_list.len()];
 			let mut modified_list = vec![Vec::new(); path_list.len()];
+			let all = self.all();
 			for dir_index in &path_list {
-				let dir = &self.dirs[*dir_index];
-				let (start, end) = self.find_dir_files(dir.meta.path());
-				let file_list = &self.files[start..end];
+				let sub_index = all.sub_index(*dir_index);
+				let file_list = sub_index.files;
 				if match_name {
 					name_list[*dir_index] =
 						file_list.iter().map(|entry| entry.meta.path().to_string()).collect();
@@ -453,8 +453,9 @@ impl RootIndex {
 		allowlist: Option<&Regex>,
 		denylist: Option<&Regex>,
 	) -> Vec<Vec<String>> {
+		let all = self.all();
 		let mut dirs_by_checksums = HashMap::<(usize, Vec<Checksum>), Vec<String>>::new();
-		for dir in &self.dirs {
+		for (dir_index, dir) in self.dirs.iter().enumerate() {
 			if let Some(filter) = allowlist {
 				if !filter.is_match(dir.meta.path()) {
 					continue;
@@ -465,19 +466,16 @@ impl RootIndex {
 					continue;
 				}
 			}
-			let (start, end) = self.find_dir_files(dir.meta.path());
-			let file_list = &self.files[start..end];
-			let mut file_checksums = Vec::with_capacity(end - start);
+
+			let sub_index = all.sub_index(dir_index);
+			let file_list = sub_index.files;
+			let mut file_checksums = Vec::with_capacity(file_list.len());
 			for file in file_list {
 				file_checksums.push(file.checksum.clone());
 			}
 			file_checksums.sort();
 
-			let children = if let Some((start, end)) = self.find_dir_children(dir.meta.path()) {
-				end - start
-			} else {
-				0
-			};
+			let children = sub_index.dirs.len();
 			dirs_by_checksums
 				.entry((children, file_checksums))
 				.or_default()

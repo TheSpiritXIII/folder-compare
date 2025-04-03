@@ -49,6 +49,13 @@ impl Metadata {
 		}
 	}
 
+	pub fn is_child_of(&self, dir: &str) -> bool {
+		if self.path.len() >= dir.len() {
+			return false;
+		}
+		self.path.starts_with(dir) && self.path.as_bytes()[dir.len()] == b'/'
+	}
+
 	pub fn path(&self) -> &str {
 		&self.path
 	}
