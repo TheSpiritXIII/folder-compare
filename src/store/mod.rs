@@ -7,7 +7,7 @@ mod sub_index;
 #[cfg(test)]
 mod sub_index_test;
 #[cfg(test)]
-mod test;
+mod root_index_remove_test;
 
 pub use calculator::Diff;
 pub use root_index::RootIndex;
