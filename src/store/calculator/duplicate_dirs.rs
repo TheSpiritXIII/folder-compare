@@ -169,10 +169,12 @@ pub fn duplicate_dirs(index: &SubIndex, allowlist: &Allowlist) -> Vec<Vec<String
 	}
 
 	let mut matches = Vec::new();
-	for (_, path_list) in dirs_by_checksums {
+	for (_, mut path_list) in dirs_by_checksums {
 		if path_list.len() > 1 {
+			path_list.sort();
 			matches.push(path_list);
 		}
 	}
+	matches.sort();
 	matches
 }

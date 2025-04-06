@@ -115,10 +115,12 @@ pub fn duplicates(files: &[entry::File], allowlist: &Allowlist) -> Vec<Vec<Strin
 	}
 
 	let mut matches = Vec::new();
-	for (_, path_list) in path_by_checksum {
+	for (_, mut path_list) in path_by_checksum {
 		if path_list.len() > 1 {
+			path_list.sort();
 			matches.push(path_list);
 		}
 	}
+	matches.sort();
 	matches
 }
