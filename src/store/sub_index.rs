@@ -57,7 +57,9 @@ impl SubIndex<'_> {
 			return (0, self.files.len());
 		}
 
-		let start = match self.files.binary_search_by(|entry| entry.meta.path().cmp(p)) {
+		let mut path_normal = p.to_owned();
+		path_normal.push('/');
+		let start = match self.files.binary_search_by(|entry| entry.meta.path().cmp(&path_normal)) {
 			Ok(index) | Err(index) => index,
 		};
 		let mut end = start;

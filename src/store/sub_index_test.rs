@@ -133,3 +133,26 @@ fn test_sub_index_empty_root() {
 	assert_eq!(sub_index.dir_count(), 0);
 	assert_eq!(sub_index.file_count(), 0);
 }
+
+#[test]
+fn test_sub_index_file_same_name_as_dir() {
+	let store = TestStore {
+		dirs: vec![
+			dir_with_path("a"),
+			dir_with_path("a/b"),
+		],
+		files: vec![
+			file_with_path("a.txt"),
+			file_with_path("a/a.txt"),
+			file_with_path("a/b.txt"),
+			file_with_path("a/b/a.txt"),
+			file_with_path("a/b/b.txt"),
+			file_with_path("b.txt"),
+		],
+	};
+	let index = store.index();
+	let dir_index = index.dir_index("a").unwrap();
+	let sub_index = index.sub_index(dir_index);
+	assert_eq!(sub_index.dir_count(), 1);
+	assert_eq!(sub_index.file_count(), 4);
+}

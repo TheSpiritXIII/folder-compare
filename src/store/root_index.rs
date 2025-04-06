@@ -240,9 +240,11 @@ impl RootIndex {
 
 	pub fn sub_index(&self, dir: impl AsRef<Path>) -> Option<SubIndex> {
 		let p = normalized_path(dir);
-		let dir_index = self.all().dir_index(&p)?;
-		let (dir_start, dir_end) = self.all().dir_children_indices(dir_index);
-		let (file_start, file_end) = self.all().dir_file_indices(&p);
+		let all = self.all();
+		let dir_index = all.dir_index(&p)?;
+		let (dir_start, dir_end) = all.dir_children_indices(dir_index);
+		let (file_start, file_end) = all.dir_file_indices(&p);
+		println!("start {} end {}, real {}", file_start, file_end, self.files[file_start].meta.path());
 		Some(SubIndex {
 			files: &self.files[file_start..file_end],
 			dirs: &self.dirs[dir_start..dir_end],
