@@ -146,20 +146,24 @@ pub fn calculate_dir_matches(
 }
 
 pub fn duplicate_dirs(index: &SubIndex, allowlist: &Allowlist) -> Vec<Vec<String>> {
-	let mut dirs_by_checksums = HashMap::<(usize, Vec<Checksum>), Vec<String>>::new();
+	let mut dirs_by_checksums = HashMap::<(DirStats, Vec<Checksum>), Vec<String>>::new();
 	for (dir_index, dir) in index.dirs.iter().enumerate() {
 		if !allowlist.is_allowed(&dir.meta.path) {
 			continue;
 		}
 
 		let sub_index = index.sub_index(dir_index);
+		let stats = dir_stats(&sub_index);
+		if stats.dir_count == 0 && stats.file_count == 0 {
+			continue;
+		}
+
 		let mut file_checksums: Vec<_> =
 			sub_index.files.iter().map(|entry| entry.checksum.clone()).collect();
 		file_checksums.sort();
 
-		let children = sub_index.dirs.len();
 		dirs_by_checksums
-			.entry((children, file_checksums))
+			.entry((stats, file_checksums))
 			.or_default()
 			.push(dir.meta.path().to_string());
 	}
