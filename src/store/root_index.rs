@@ -5,7 +5,6 @@ use std::fs::{self};
 use std::io::{self};
 use std::path::Path;
 
-use regex::Regex;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -18,6 +17,7 @@ use super::checksum::NativeFileReader;
 use super::entry;
 use super::metadata::normalized_path;
 use super::sub_index::SubIndex;
+use super::Allowlist;
 use super::Diff;
 
 #[derive(Serialize, Deserialize)]
@@ -211,8 +211,7 @@ impl RootIndex {
 	pub fn calculate_matches(
 		&mut self,
 		notifier: impl FnMut(&str),
-		allowlist: Option<&Regex>,
-		denylist: Option<&Regex>,
+		allowlist: &Allowlist,
 		match_name: bool,
 		match_created: bool,
 		match_modified: bool,
@@ -222,19 +221,14 @@ impl RootIndex {
 			&mut self.dirty,
 			notifier,
 			allowlist,
-			denylist,
 			match_name,
 			match_created,
 			match_modified,
 		)
 	}
 
-	pub fn duplicates(
-		&self,
-		allowlist: Option<&Regex>,
-		denylist: Option<&Regex>,
-	) -> Vec<Vec<String>> {
-		duplicates(&self.files, allowlist, denylist)
+	pub fn duplicates(&self, allowlist: &Allowlist) -> Vec<Vec<String>> {
+		duplicates(&self.files, allowlist)
 	}
 
 	pub fn all(&self) -> SubIndex {
@@ -259,8 +253,7 @@ impl RootIndex {
 	pub fn calculate_dir_matches(
 		&mut self,
 		notifier: impl FnMut(&str),
-		allowlist: Option<&Regex>,
-		denylist: Option<&Regex>,
+		allowlist: &Allowlist,
 		match_name: bool,
 		match_created: bool,
 		match_modified: bool,
@@ -271,19 +264,14 @@ impl RootIndex {
 			&mut self.dirty,
 			notifier,
 			allowlist,
-			denylist,
 			match_name,
 			match_created,
 			match_modified,
 		)
 	}
 
-	pub fn duplicate_dirs(
-		&self,
-		allowlist: Option<&Regex>,
-		denylist: Option<&Regex>,
-	) -> Vec<Vec<String>> {
-		duplicate_dirs(&self.all(), allowlist, denylist)
+	pub fn duplicate_dirs(&self, allowlist: &Allowlist) -> Vec<Vec<String>> {
+		duplicate_dirs(&self.all(), allowlist)
 	}
 
 	pub fn diff(

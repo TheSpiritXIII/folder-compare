@@ -2,11 +2,10 @@ use std::collections::HashMap;
 use std::io;
 use std::time::SystemTime;
 
-use regex::Regex;
-
 use crate::store::checksum::Checksum;
 use crate::store::checksum::NativeFileReader;
 use crate::store::entry;
+use crate::store::Allowlist;
 use crate::store::BUF_SIZE;
 
 #[allow(clippy::too_many_arguments)]
@@ -14,23 +13,15 @@ pub fn calculate_matches(
 	files: &mut [entry::File],
 	dirty: &mut bool,
 	mut notifier: impl FnMut(&str),
-	allowlist: Option<&Regex>,
-	denylist: Option<&Regex>,
+	allowlist: &Allowlist,
 	match_name: bool,
 	match_created: bool,
 	match_modified: bool,
 ) -> io::Result<()> {
 	let mut file_index_by_size = HashMap::<u64, Vec<usize>>::new();
 	for (file_index, file) in files.iter().enumerate() {
-		if let Some(filter) = allowlist {
-			if !filter.is_match(file.meta.path()) {
-				continue;
-			}
-		}
-		if let Some(filter) = denylist {
-			if filter.is_match(file.meta.path()) {
-				continue;
-			}
+		if !allowlist.is_allowed(&file.meta.path) {
+			continue;
 		}
 		file_index_by_size.entry(file.size).or_default().push(file_index);
 	}
@@ -109,23 +100,12 @@ pub fn calculate_matches(
 	Ok(())
 }
 
-pub fn duplicates(
-	files: &[entry::File],
-	allowlist: Option<&Regex>,
-	denylist: Option<&Regex>,
-) -> Vec<Vec<String>> {
+pub fn duplicates(files: &[entry::File], allowlist: &Allowlist) -> Vec<Vec<String>> {
 	let mut path_by_checksum = HashMap::<(Checksum, u64), Vec<String>>::new();
 	for file in files {
 		if !file.checksum.is_empty() {
-			if let Some(filter) = allowlist {
-				if !filter.is_match(file.meta.path()) {
-					continue;
-				}
-			}
-			if let Some(filter) = denylist {
-				if filter.is_match(file.meta.path()) {
-					continue;
-				}
+			if !allowlist.is_allowed(&file.meta.path) {
+				continue;
 			}
 			path_by_checksum
 				.entry((file.checksum.clone(), file.size))

@@ -13,6 +13,7 @@ use clap::Args;
 use clap::Parser;
 use clap::Subcommand;
 use regex::Regex;
+use store::Allowlist;
 
 /// Utility to compare folder contents.
 #[derive(Parser, Debug)]
@@ -111,13 +112,15 @@ struct Matches {
 
 #[derive(Args, Debug)]
 struct Filter {
-	/// Regular expression for expressing the paths to keep.
+	/// Regular expression for expressing the paths to keep. Multiple allowlists are considered an
+	/// "OR".
 	#[clap(long)]
-	allowlist: Option<Regex>,
+	allow: Vec<Regex>,
 
-	/// Regular expression for expressing the paths to ignore.
+	/// Regular expression for expressing the paths to ignore. Multiple denylists are considered an
+	/// "OR".
 	#[clap(long)]
-	denylist: Option<Regex>,
+	deny: Vec<Regex>,
 }
 
 fn main() -> Result<()> {
@@ -145,11 +148,14 @@ fn main() -> Result<()> {
 			)
 		}
 		Command::Duplicates(subcommand) => {
+			let allowlist = Allowlist {
+				allow: subcommand.filter.allow,
+				deny: subcommand.filter.deny,
+			};
 			command::duplicates(
 				&subcommand.index_file,
 				subcommand.dirs,
-				subcommand.filter.allowlist.as_ref(),
-				subcommand.filter.denylist.as_ref(),
+				&allowlist,
 				subcommand.matches.name,
 				subcommand.matches.created,
 				subcommand.matches.modified,

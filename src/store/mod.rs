@@ -1,14 +1,16 @@
+mod allowlist;
 mod calculator;
 mod checksum;
 mod entry;
 mod metadata;
 mod root_index;
+#[cfg(test)]
+mod root_index_remove_test;
 mod sub_index;
 #[cfg(test)]
 mod sub_index_test;
-#[cfg(test)]
-mod root_index_remove_test;
 
+pub use allowlist::Allowlist;
 pub use calculator::Diff;
 pub use root_index::RootIndex;
 

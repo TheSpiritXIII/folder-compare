@@ -5,9 +5,9 @@ use std::time::Duration;
 
 use anyhow::Context;
 use anyhow::Result;
-use regex::Regex;
 
 use crate::store;
+use crate::store::Allowlist;
 use crate::util::display::percentage;
 use crate::util::terminal::clear_line;
 use crate::util::timer::CountdownTimer;
@@ -16,8 +16,7 @@ use crate::util::timer::CountdownTimer;
 pub fn duplicates(
 	index_file: &PathBuf,
 	dirs: bool,
-	allowlist: Option<&Regex>,
-	denylist: Option<&Regex>,
+	allowlist: &Allowlist,
 	match_name: bool,
 	match_created: bool,
 	match_modified: bool,
@@ -45,7 +44,6 @@ pub fn duplicates(
 					}
 				},
 				allowlist,
-				denylist,
 				match_name,
 				match_created,
 				match_modified,
@@ -54,7 +52,7 @@ pub fn duplicates(
 
 		clear_line();
 		println!("Gathering duplicates...");
-		index.duplicate_dirs(allowlist, denylist)
+		index.duplicate_dirs(allowlist)
 	} else {
 		println!("Comparing files...");
 		let total = index.file_count();
@@ -74,7 +72,6 @@ pub fn duplicates(
 					}
 				},
 				allowlist,
-				denylist,
 				match_name,
 				match_created,
 				match_modified,
@@ -83,7 +80,7 @@ pub fn duplicates(
 
 		clear_line();
 		println!("Gathering duplicates...");
-		index.duplicates(allowlist, denylist)
+		index.duplicates(allowlist)
 	};
 
 	if duplicates.is_empty() {

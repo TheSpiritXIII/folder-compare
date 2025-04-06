@@ -2,12 +2,11 @@ use std::collections::HashMap;
 use std::io;
 use std::time::SystemTime;
 
-use regex::Regex;
-
 use crate::store::checksum::Checksum;
 use crate::store::checksum::NativeFileReader;
 use crate::store::entry;
 use crate::store::sub_index::SubIndex;
+use crate::store::Allowlist;
 use crate::store::BUF_SIZE;
 
 #[derive(PartialEq, Eq, Hash)]
@@ -34,8 +33,7 @@ pub fn calculate_dir_matches(
 	dirs: &mut [entry::Dir],
 	dirty: &mut bool,
 	mut notifier: impl FnMut(&str),
-	allowlist: Option<&Regex>,
-	denylist: Option<&Regex>,
+	allowlist: &Allowlist,
 	match_name: bool,
 	match_created: bool,
 	match_modified: bool,
@@ -51,15 +49,8 @@ pub fn calculate_dir_matches(
 		if stats.dir_count == 0 && stats.file_count == 0 {
 			continue;
 		}
-		if let Some(filter) = allowlist {
-			if !filter.is_match(dir.meta.path()) {
-				continue;
-			}
-		}
-		if let Some(filter) = denylist {
-			if filter.is_match(dir.meta.path()) {
-				continue;
-			}
+		if !allowlist.is_allowed(&dir.meta.path) {
+			continue;
 		}
 		dirs_by_stats.entry(stats).or_default().push(dir_index);
 	}
@@ -154,22 +145,11 @@ pub fn calculate_dir_matches(
 	Ok(())
 }
 
-pub fn duplicate_dirs(
-	index: &SubIndex,
-	allowlist: Option<&Regex>,
-	denylist: Option<&Regex>,
-) -> Vec<Vec<String>> {
+pub fn duplicate_dirs(index: &SubIndex, allowlist: &Allowlist) -> Vec<Vec<String>> {
 	let mut dirs_by_checksums = HashMap::<(usize, Vec<Checksum>), Vec<String>>::new();
 	for (dir_index, dir) in index.dirs.iter().enumerate() {
-		if let Some(filter) = allowlist {
-			if !filter.is_match(dir.meta.path()) {
-				continue;
-			}
-		}
-		if let Some(filter) = denylist {
-			if filter.is_match(dir.meta.path()) {
-				continue;
-			}
+		if !allowlist.is_allowed(&dir.meta.path) {
+			continue;
 		}
 
 		let sub_index = index.sub_index(dir_index);
