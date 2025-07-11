@@ -46,7 +46,7 @@ pub fn calculate_dir_matches(
 	for (dir_index, dir) in index.dirs.iter().enumerate() {
 		let sub_index = index.sub_index(dir_index);
 		let stats = dir_stats(&sub_index);
-		if stats.dir_count == 0 && stats.file_count == 0 {
+		if stats.file_size == 0 {
 			continue;
 		}
 		if !allowlist.is_allowed(&dir.meta.path) {
@@ -154,7 +154,7 @@ pub fn duplicate_dirs(index: &SubIndex, allowlist: &Allowlist) -> Vec<Vec<String
 
 		let sub_index = index.sub_index(dir_index);
 		let stats = dir_stats(&sub_index);
-		if stats.dir_count == 0 && stats.file_count == 0 {
+		if stats.file_size == 0 {
 			continue;
 		}
 
