@@ -85,8 +85,10 @@ cargo run -- duplicates --index-file="index.ron"
 
 This will output:
 
-```bash
-Duplicate: ["path/to/a/foo.txt", "path/to/a/bar.txt"]
+```txt
+Duplicate group 1:
+- path/to/a/foo.txt
+- path/to/a/bar.txt
 ```
 
 > [!WARNING]

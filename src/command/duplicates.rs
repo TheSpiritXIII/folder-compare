@@ -86,8 +86,11 @@ pub fn duplicates(
 	if duplicates.is_empty() {
 		println!("No duplicates found");
 	} else {
-		for file_list in duplicates {
-			println!("Duplicate: {file_list:?}");
+		for (i, file_list) in duplicates.iter().enumerate() {
+			println!("Duplicate group {i}:");
+			for file in file_list {
+				println!("- {file}");
+			}
 		}
 	}
 
