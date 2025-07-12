@@ -103,32 +103,33 @@ impl RootIndex {
 		let mut queue = VecDeque::new();
 		queue.push_back(path.as_ref().to_path_buf());
 
-		let mut is_root = path.as_ref().parent().is_none();
 		let start_index = self.files.len();
 
+		// Windows: If the directory we're adding is a drive, it could incorrectly be marked as
+		// hidden. Add whatever we pass to add regardless of whether it is marked as hidden.
+		let mut root = true;
+
 		while let Some(current_path) = queue.pop_front() {
-			self.dirs.push(entry::Dir::from_path(&current_path)?);
+			let dir = entry::Dir::from_path(&current_path)?;
+			if !root && dir.meta.hidden {
+				continue;
+			}
+			root = false;
+
+			self.dirs.push(dir);
 			notifier(self.dirs.last().unwrap().meta.path());
 
 			for entry in fs::read_dir(current_path)? {
 				let entry = entry?;
 				let path = entry.path();
-				if path.is_dir() {
-					if is_root {
-						if let Some(name) = path.file_name() {
-							if name == "$RECYCLE.BIN" || name == "System Volume Information" {
-								continue;
-							}
-						}
-					}
 
+				if path.is_dir() {
 					queue.push_back(path);
 				} else {
 					let entry = self.add_file(path)?;
 					notifier(entry.meta.path());
 				}
 			}
-			is_root = false;
 		}
 
 		Ok(&mut self.files[start_index..])
@@ -244,7 +245,12 @@ impl RootIndex {
 		let dir_index = all.dir_index(&p)?;
 		let (dir_start, dir_end) = all.dir_children_indices(dir_index);
 		let (file_start, file_end) = all.dir_file_indices(&p);
-		println!("start {} end {}, real {}", file_start, file_end, self.files[file_start].meta.path());
+		println!(
+			"start {} end {}, real {}",
+			file_start,
+			file_end,
+			self.files[file_start].meta.path()
+		);
 		Some(SubIndex {
 			files: &self.files[file_start..file_end],
 			dirs: &self.dirs[dir_start..dir_end],

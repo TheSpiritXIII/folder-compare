@@ -2,6 +2,7 @@ mod allowlist;
 mod calculator;
 mod checksum;
 mod entry;
+mod hidden;
 mod metadata;
 mod root_index;
 #[cfg(test)]

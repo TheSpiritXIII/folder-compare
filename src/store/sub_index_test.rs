@@ -11,6 +11,7 @@ fn metadata_with_path(path: &str) -> Metadata {
 		path: path.to_string(),
 		created_time: SystemTime::UNIX_EPOCH,
 		modified_time: SystemTime::UNIX_EPOCH,
+		hidden: false,
 	}
 }
 

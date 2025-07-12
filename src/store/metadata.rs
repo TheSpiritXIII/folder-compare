@@ -6,6 +6,8 @@ use std::time::SystemTime;
 use serde::Deserialize;
 use serde::Serialize;
 
+use super::hidden::is_hidden_windows_metadata;
+
 fn normalized_path_str(path: &str) -> String {
 	let mut path = path.replace('\\', "/");
 	if path.ends_with('/') {
@@ -33,6 +35,8 @@ pub struct Metadata {
 	pub path: String,
 	pub created_time: std::time::SystemTime,
 	pub modified_time: std::time::SystemTime,
+	#[serde(skip)]
+	pub hidden: bool,
 }
 
 impl Metadata {
@@ -46,6 +50,7 @@ impl Metadata {
 			path: normalized_path(path.as_ref()),
 			created_time: metadata.created().unwrap_or(SystemTime::UNIX_EPOCH),
 			modified_time: metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH),
+			hidden: is_hidden_windows_metadata(metadata),
 		}
 	}
 
