@@ -1,74 +1,28 @@
-use std::time::SystemTime;
+use crate::store::PathIndexBuilder;
+use crate::store::RootIndex;
 
-use crate::store::checksum::Checksum;
-use crate::store::entry::Dir;
-use crate::store::entry::File;
-use crate::store::metadata::Metadata;
-use crate::store::sub_index::SubIndex;
-
-fn metadata_with_path(path: &str) -> Metadata {
-	Metadata {
-		path: path.to_string(),
-		created_time: SystemTime::UNIX_EPOCH,
-		modified_time: SystemTime::UNIX_EPOCH,
-		hidden: false,
-	}
-}
-
-fn dir_with_path(path: &str) -> Dir {
-	Dir {
-		meta: metadata_with_path(path),
-	}
-}
-
-fn file_with_path(path: &str) -> File {
-	File {
-		meta: metadata_with_path(path),
-		size: 1,
-		checksum: Checksum::new(),
-	}
-}
-
-struct TestStore {
-	dirs: Vec<Dir>,
-	files: Vec<File>,
-}
-
-impl TestStore {
-	fn index(&self) -> SubIndex {
-		SubIndex {
-			files: &self.files,
-			dirs: &self.dirs,
-		}
-	}
-}
-
-fn test_store() -> TestStore {
-	return TestStore {
-		dirs: vec![
-			dir_with_path("abc"),
-			dir_with_path("abc/xyz"),
-			dir_with_path("foo"),
-			dir_with_path("foo/bar"),
-			dir_with_path("foo/bar/nested"),
-			dir_with_path("foo/empty"),
-			dir_with_path("vw"),
-		],
-		files: vec![
-			file_with_path("foo/bar/f.txt"),
-			file_with_path("foo/bar/g.txt"),
-			file_with_path("foo/bar/h.txt"),
-			file_with_path("foo/bar/nested/d.txt"),
-			file_with_path("foo/bar/nested/e.txt"),
-			file_with_path("i.txt"),
-		],
-	};
+fn test_store() -> RootIndex {
+	let mut builder = PathIndexBuilder::new();
+	builder.add_dir("abc");
+	builder.add_dir("abc/xyz");
+	builder.add_dir("foo");
+	builder.add_dir("foo/bar");
+	builder.add_dir("foo/bar/nested");
+	builder.add_dir("foo/empty");
+	builder.add_dir("vw");
+	builder.add_file("foo/bar/f.txt");
+	builder.add_file("foo/bar/g.txt");
+	builder.add_file("foo/bar/h.txt");
+	builder.add_file("foo/bar/nested/d.txt");
+	builder.add_file("foo/bar/nested/e.txt");
+	builder.add_file("i.txt");
+	builder.build()
 }
 
 #[test]
 fn test_sub_index_empty_nested_root() {
 	let store = test_store();
-	let index = store.index();
+	let index = store.all();
 	let dir_index = index.dir_index("abc").unwrap();
 	let sub_index = index.sub_index(dir_index);
 	assert_eq!(sub_index.dir_count(), 1);
@@ -78,7 +32,7 @@ fn test_sub_index_empty_nested_root() {
 #[test]
 fn test_sub_index_empty_nested_leaf() {
 	let store = test_store();
-	let index = store.index();
+	let index = store.all();
 	let dir_index = index.dir_index("abc/xyz").unwrap();
 	let sub_index = index.sub_index(dir_index);
 	assert_eq!(sub_index.dir_count(), 0);
@@ -88,7 +42,7 @@ fn test_sub_index_empty_nested_leaf() {
 #[test]
 fn test_sub_index_deeply_nested_root() {
 	let store = test_store();
-	let index = store.index();
+	let index = store.all();
 	let dir_index = index.dir_index("foo").unwrap();
 	let sub_index = index.sub_index(dir_index);
 	assert_eq!(sub_index.dir_count(), 3);
@@ -98,7 +52,7 @@ fn test_sub_index_deeply_nested_root() {
 #[test]
 fn test_sub_index_deeply_nested_child() {
 	let store = test_store();
-	let index = store.index();
+	let index = store.all();
 	let dir_index = index.dir_index("foo/bar").unwrap();
 	let sub_index = index.sub_index(dir_index);
 	assert_eq!(sub_index.dir_count(), 1);
@@ -108,7 +62,7 @@ fn test_sub_index_deeply_nested_child() {
 #[test]
 fn test_sub_index_deeply_nested_leaf() {
 	let store = test_store();
-	let index = store.index();
+	let index = store.all();
 	let dir_index = index.dir_index("foo/bar/nested").unwrap();
 	let sub_index = index.sub_index(dir_index);
 	assert_eq!(sub_index.dir_count(), 0);
@@ -118,7 +72,7 @@ fn test_sub_index_deeply_nested_leaf() {
 #[test]
 fn test_sub_index_nested_child_empty() {
 	let store = test_store();
-	let index = store.index();
+	let index = store.all();
 	let dir_index = index.dir_index("foo/empty").unwrap();
 	let sub_index = index.sub_index(dir_index);
 	assert_eq!(sub_index.dir_count(), 0);
@@ -128,7 +82,7 @@ fn test_sub_index_nested_child_empty() {
 #[test]
 fn test_sub_index_empty_root() {
 	let store = test_store();
-	let index = store.index();
+	let index = store.all();
 	let dir_index = index.dir_index("vw").unwrap();
 	let sub_index = index.sub_index(dir_index);
 	assert_eq!(sub_index.dir_count(), 0);
@@ -137,21 +91,17 @@ fn test_sub_index_empty_root() {
 
 #[test]
 fn test_sub_index_file_same_name_as_dir() {
-	let store = TestStore {
-		dirs: vec![
-			dir_with_path("a"),
-			dir_with_path("a/b"),
-		],
-		files: vec![
-			file_with_path("a.txt"),
-			file_with_path("a/a.txt"),
-			file_with_path("a/b.txt"),
-			file_with_path("a/b/a.txt"),
-			file_with_path("a/b/b.txt"),
-			file_with_path("b.txt"),
-		],
-	};
-	let index = store.index();
+	let mut builder = PathIndexBuilder::new();
+	builder.add_dir("a");
+	builder.add_dir("a/b");
+	builder.add_file("a.txt");
+	builder.add_file("a/a.txt");
+	builder.add_file("a/b.txt");
+	builder.add_file("a/b/a.txt");
+	builder.add_file("a/b/b.txt");
+	builder.add_file("b.txt");
+	let store = builder.build();
+	let index = store.all();
 	let dir_index = index.dir_index("a").unwrap();
 	let sub_index = index.sub_index(dir_index);
 	assert_eq!(sub_index.dir_count(), 1);

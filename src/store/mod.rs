@@ -1,4 +1,5 @@
 mod allowlist;
+mod builder;
 mod calculator;
 mod checksum;
 mod entry;
@@ -12,6 +13,8 @@ mod sub_index;
 mod sub_index_test;
 
 pub use allowlist::Allowlist;
+#[cfg(test)]
+pub use builder::PathIndexBuilder;
 pub use calculator::Diff;
 pub use root_index::RootIndex;
 
