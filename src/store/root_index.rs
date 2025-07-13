@@ -50,7 +50,8 @@ impl RootIndex {
 			index.normalize();
 			return Ok(index);
 		} else if path.as_ref().is_file() {
-			index.add_file(path)?;
+			let file = entry::File::from_path(path)?;
+			index.add_file(file);
 			return Ok(index);
 		}
 		// TODO: io::Result doesn't make sense for this.
@@ -80,7 +81,8 @@ impl RootIndex {
 		} else if path.as_ref().is_file() {
 			self.dirty = true;
 			let removed = self.remove_file(path.as_ref());
-			let added = self.add_file(path)?;
+			let file = entry::File::from_path(path)?;
+			let added = self.add_file(file);
 			if let Some(entry) = removed {
 				if entry.meta == added.meta {
 					added.checksum = entry.checksum;
@@ -106,7 +108,7 @@ impl RootIndex {
 		let start_index = self.files.len();
 
 		// Windows: If the directory we're adding is a drive, it could incorrectly be marked as
-		// hidden. Add whatever we pass to add regardless of whether it is marked as hidden.
+		// hidden. Add whatever we add regardless of whether it is marked as hidden.
 		let mut root = true;
 
 		while let Some(current_path) = queue.pop_front() {
@@ -126,7 +128,12 @@ impl RootIndex {
 				if path.is_dir() {
 					queue.push_back(path);
 				} else {
-					let entry = self.add_file(path)?;
+					let file = entry::File::from_path(path)?;
+					if file.meta.hidden {
+						println!("Skipping hidden file: {}", file.meta.path());
+						continue;
+					}
+					let entry = self.add_file(file);
 					notifier(entry.meta.path());
 				}
 			}
@@ -135,9 +142,9 @@ impl RootIndex {
 		Ok(&mut self.files[start_index..])
 	}
 
-	fn add_file(&mut self, path: impl AsRef<std::path::Path>) -> io::Result<&mut entry::File> {
-		self.files.push(entry::File::from_path(path)?);
-		Ok(self.files.last_mut().unwrap())
+	fn add_file(&mut self, file: entry::File) -> &mut entry::File {
+		self.files.push(file);
+		self.files.last_mut().unwrap()
 	}
 
 	// Removes the directory in the given path.
