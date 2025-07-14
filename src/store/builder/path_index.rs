@@ -6,11 +6,11 @@ use crate::store::metadata::normalized_path;
 use crate::store::metadata::Metadata;
 use crate::store::RootIndex;
 
-// An filesystem index storing only paths, without access to metadata or file contents. Primarily
+// A filesystem index storing only paths, without access to metadata or file contents. Primarily
 // used for testing.
 pub struct PathIndexBuilder {
-	pub(super) files: Vec<entry::File>,
-	pub(super) dirs: Vec<entry::Dir>,
+	files: Vec<entry::File>,
+	dirs: Vec<entry::Dir>,
 }
 
 impl PathIndexBuilder {
@@ -29,9 +29,7 @@ impl PathIndexBuilder {
 		if self.file_exists(&path) {
 			return;
 		}
-		for dir in path.rsplit('/').skip(1) {
-			self.add_dir(dir);
-		}
+
 		let file = entry::File {
 			meta: Metadata {
 				path,
@@ -42,6 +40,11 @@ impl PathIndexBuilder {
 			size: 0,
 			checksum: Checksum::new(),
 		};
+		if let Some(parent) = file.meta.parent() {
+			self.add_dir(parent);
+		} else {
+			self.add_dir("");
+		}
 		self.files.push(file);
 	}
 
@@ -52,9 +55,7 @@ impl PathIndexBuilder {
 		if self.dir_exists(&path) {
 			return;
 		}
-		for dir in path.rsplit('/').skip(1) {
-			self.add_dir(dir);
-		}
+
 		let dir = entry::Dir {
 			meta: Metadata {
 				path,
@@ -63,6 +64,9 @@ impl PathIndexBuilder {
 				hidden: false,
 			},
 		};
+		if let Some(parent) = dir.meta.parent() {
+			self.add_dir(parent);
+		}
 		self.dirs.push(dir);
 	}
 
