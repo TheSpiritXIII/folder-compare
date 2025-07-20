@@ -1,5 +1,5 @@
-use crate::store::PathIndexBuilder;
-use crate::store::RootIndex;
+use super::RootIndex;
+use crate::index::builder::PathIndexBuilder;
 
 fn test_store() -> RootIndex {
 	let mut builder = PathIndexBuilder::new();

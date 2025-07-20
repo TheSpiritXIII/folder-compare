@@ -6,8 +6,8 @@ use std::time::Duration;
 use anyhow::Context;
 use anyhow::Result;
 
-use crate::store;
-use crate::store::Allowlist;
+use crate::index::Allowlist;
+use crate::index::RootIndex;
 use crate::util::display::percentage;
 use crate::util::terminal::clear_line;
 use crate::util::timer::CountdownTimer;
@@ -22,7 +22,7 @@ pub fn duplicates(
 	match_modified: bool,
 ) -> Result<()> {
 	println!("Opening index file...");
-	let mut index = store::RootIndex::open(index_file)
+	let mut index = RootIndex::open(index_file)
 		.with_context(|| format!("Unable to open index: {}", index_file.display()))?;
 
 	let duplicates = if dirs {

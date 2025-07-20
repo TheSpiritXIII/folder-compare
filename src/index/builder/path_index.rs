@@ -1,16 +1,17 @@
 use std::time::SystemTime;
 
-use crate::store::checksum::Checksum;
-use crate::store::entry;
-use crate::store::metadata::normalized_path;
-use crate::store::metadata::Metadata;
-use crate::store::RootIndex;
+use crate::index::model::normalized_path;
+use crate::index::model::Checksum;
+use crate::index::model::Dir;
+use crate::index::model::File;
+use crate::index::model::Metadata;
+use crate::index::RootIndex;
 
 // A filesystem index storing only paths, without access to metadata or file contents. Primarily
 // used for testing.
 pub struct PathIndexBuilder {
-	files: Vec<entry::File>,
-	dirs: Vec<entry::Dir>,
+	files: Vec<File>,
+	dirs: Vec<Dir>,
 }
 
 impl PathIndexBuilder {
@@ -30,7 +31,7 @@ impl PathIndexBuilder {
 			return;
 		}
 
-		let file = entry::File {
+		let file = File {
 			meta: Metadata {
 				path,
 				created_time: SystemTime::UNIX_EPOCH,
@@ -56,7 +57,7 @@ impl PathIndexBuilder {
 			return;
 		}
 
-		let dir = entry::Dir {
+		let dir = Dir {
 			meta: Metadata {
 				path,
 				created_time: SystemTime::UNIX_EPOCH,

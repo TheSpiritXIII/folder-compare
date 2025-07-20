@@ -2,12 +2,13 @@ use std::collections::HashMap;
 use std::io;
 use std::time::SystemTime;
 
-use crate::store::checksum::Checksum;
-use crate::store::checksum::NativeFileReader;
-use crate::store::entry;
-use crate::store::sub_index::SubIndex;
-use crate::store::Allowlist;
-use crate::store::BUF_SIZE;
+use super::Allowlist;
+use crate::index::model::Checksum;
+use crate::index::model::Dir;
+use crate::index::model::File;
+use crate::index::model::NativeFileReader;
+use crate::index::SubIndex;
+use crate::index::BUF_SIZE;
 
 #[derive(PartialEq, Eq, Hash)]
 pub struct DirStats {
@@ -29,8 +30,8 @@ fn dir_stats(index: &SubIndex) -> DirStats {
 	clippy::too_many_arguments
 )]
 pub fn calculate_dir_matches(
-	files: &mut [entry::File],
-	dirs: &mut [entry::Dir],
+	files: &mut [File],
+	dirs: &mut [Dir],
 	dirty: &mut bool,
 	mut notifier: impl FnMut(&str),
 	allowlist: &Allowlist,

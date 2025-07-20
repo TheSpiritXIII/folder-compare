@@ -1,7 +1,7 @@
 #![warn(clippy::pedantic)]
 
 mod command;
-mod store;
+mod index;
 mod util;
 
 use std::env;
@@ -12,8 +12,8 @@ use anyhow::Result;
 use clap::Args;
 use clap::Parser;
 use clap::Subcommand;
+use index::Allowlist;
 use regex::Regex;
-use store::Allowlist;
 
 /// Utility to compare folder contents.
 #[derive(Parser, Debug)]

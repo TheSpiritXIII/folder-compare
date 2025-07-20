@@ -1,5 +1,5 @@
 use super::RootIndex;
-use crate::store::PathIndexBuilder;
+use crate::index::builder::PathIndexBuilder;
 
 fn new_test_index(file_slice: &[&'static str]) -> RootIndex {
 	let mut builder = PathIndexBuilder::new();

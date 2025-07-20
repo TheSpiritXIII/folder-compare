@@ -1,9 +1,12 @@
-use super::entry;
+use crate::index::model::Dir;
+use crate::index::model::File;
 
 /// Signifies a directory and its contents from an index.
 pub struct SubIndex<'a> {
-	pub(super) files: &'a [entry::File],
-	pub(super) dirs: &'a [entry::Dir],
+	// TODO: Make this private.
+	pub files: &'a [File],
+	// TODO: Make this private.
+	pub dirs: &'a [Dir],
 }
 
 impl SubIndex<'_> {
@@ -52,7 +55,8 @@ impl SubIndex<'_> {
 		self.files.binary_search_by(|entry| entry.meta.path().cmp(p)).ok()
 	}
 
-	pub(super) fn dir_file_indices(&self, p: &str) -> (usize, usize) {
+	// TODO: Make this private.
+	pub fn dir_file_indices(&self, p: &str) -> (usize, usize) {
 		if p.is_empty() {
 			return (0, self.files.len());
 		}

@@ -2,15 +2,15 @@ use std::collections::HashMap;
 use std::io;
 use std::time::SystemTime;
 
-use crate::store::checksum::Checksum;
-use crate::store::checksum::NativeFileReader;
-use crate::store::entry;
-use crate::store::Allowlist;
-use crate::store::BUF_SIZE;
+use super::Allowlist;
+use crate::index::model::Checksum;
+use crate::index::model::File;
+use crate::index::model::NativeFileReader;
+use crate::index::BUF_SIZE;
 
 #[allow(clippy::too_many_arguments)]
 pub fn calculate_matches(
-	files: &mut [entry::File],
+	files: &mut [File],
 	dirty: &mut bool,
 	mut notifier: impl FnMut(&str),
 	allowlist: &Allowlist,
@@ -100,7 +100,7 @@ pub fn calculate_matches(
 	Ok(())
 }
 
-pub fn duplicates(files: &[entry::File], allowlist: &Allowlist) -> Vec<Vec<String>> {
+pub fn duplicates(files: &[File], allowlist: &Allowlist) -> Vec<Vec<String>> {
 	let mut path_by_checksum = HashMap::<(Checksum, u64), Vec<String>>::new();
 	for file in files {
 		if !file.checksum.is_empty() {

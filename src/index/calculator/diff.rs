@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::io;
 
-use crate::store::checksum::Checksum;
-use crate::store::checksum::NativeFileReader;
-use crate::store::entry;
-use crate::store::BUF_SIZE;
+use crate::index::model::Checksum;
+use crate::index::model::File;
+use crate::index::model::NativeFileReader;
+use crate::index::BUF_SIZE;
 
 pub enum Diff {
 	Added(String),
@@ -18,9 +18,9 @@ pub enum Diff {
 	clippy::too_many_arguments
 )]
 pub fn diff(
-	self_files: &mut [entry::File],
+	self_files: &mut [File],
 	self_dirty: &mut bool,
-	other_files: &mut [entry::File],
+	other_files: &mut [File],
 	other_dirty: &mut bool,
 	mut notifier: impl FnMut(&str, &str),
 	match_name: bool,

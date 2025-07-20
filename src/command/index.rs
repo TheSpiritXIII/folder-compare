@@ -6,7 +6,7 @@ use std::time::Duration;
 use anyhow::Context;
 use anyhow::Result;
 
-use crate::store::RootIndex;
+use crate::index::RootIndex;
 use crate::util::terminal::clear_line;
 use crate::util::timer::CountdownTimer;
 

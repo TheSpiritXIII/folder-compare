@@ -8,22 +8,26 @@ use std::path::Path;
 use serde::Deserialize;
 use serde::Serialize;
 
-use super::calculator::calculate_dir_matches;
-use super::calculator::calculate_matches;
-use super::calculator::diff;
-use super::calculator::duplicate_dirs;
-use super::calculator::duplicates;
-use super::checksum::NativeFileReader;
-use super::entry;
-use super::metadata::normalized_path;
 use super::sub_index::SubIndex;
-use super::Allowlist;
-use super::Diff;
+use crate::index::calculator::calculate_dir_matches;
+use crate::index::calculator::calculate_matches;
+use crate::index::calculator::diff;
+use crate::index::calculator::duplicate_dirs;
+use crate::index::calculator::duplicates;
+use crate::index::calculator::Diff;
+use crate::index::model::normalized_path;
+use crate::index::model::Dir;
+use crate::index::model::File;
+use crate::index::model::NativeFileReader;
+use crate::index::Allowlist;
+use crate::index::BUF_SIZE;
 
 #[derive(Serialize, Deserialize)]
 pub struct RootIndex {
-	pub(super) files: Vec<entry::File>,
-	pub(super) dirs: Vec<entry::Dir>,
+	// TODO: Make this private.
+	pub files: Vec<File>,
+	// TODO: Make this private.
+	pub dirs: Vec<Dir>,
 
 	#[serde(skip_serializing)]
 	#[serde(skip_deserializing)]
@@ -50,7 +54,7 @@ impl RootIndex {
 			index.normalize();
 			return Ok(index);
 		} else if path.as_ref().is_file() {
-			let file = entry::File::from_path(path)?;
+			let file = File::from_path(path)?;
 			index.add_file(file);
 			return Ok(index);
 		}
@@ -81,7 +85,7 @@ impl RootIndex {
 		} else if path.as_ref().is_file() {
 			self.dirty = true;
 			let removed = self.remove_file(path.as_ref());
-			let file = entry::File::from_path(path)?;
+			let file = File::from_path(path)?;
 			let added = self.add_file(file);
 			if let Some(entry) = removed {
 				if entry.meta == added.meta {
@@ -101,7 +105,7 @@ impl RootIndex {
 		&mut self,
 		path: impl AsRef<std::path::Path>,
 		mut notifier: impl FnMut(&str),
-	) -> io::Result<&mut [entry::File]> {
+	) -> io::Result<&mut [File]> {
 		let mut queue = VecDeque::new();
 		queue.push_back(path.as_ref().to_path_buf());
 
@@ -112,7 +116,7 @@ impl RootIndex {
 		let mut root = true;
 
 		while let Some(current_path) = queue.pop_front() {
-			let dir = entry::Dir::from_path(&current_path)?;
+			let dir = Dir::from_path(&current_path)?;
 			if !root && dir.meta.hidden {
 				continue;
 			}
@@ -128,7 +132,7 @@ impl RootIndex {
 				if path.is_dir() {
 					queue.push_back(path);
 				} else {
-					let file = entry::File::from_path(path)?;
+					let file = File::from_path(path)?;
 					if file.meta.hidden {
 						println!("Skipping hidden file: {}", file.meta.path());
 						continue;
@@ -142,16 +146,13 @@ impl RootIndex {
 		Ok(&mut self.files[start_index..])
 	}
 
-	fn add_file(&mut self, file: entry::File) -> &mut entry::File {
+	fn add_file(&mut self, file: File) -> &mut File {
 		self.files.push(file);
 		self.files.last_mut().unwrap()
 	}
 
 	// Removes the directory in the given path.
-	pub(super) fn remove_dir(
-		&mut self,
-		path: impl AsRef<std::path::Path>,
-	) -> Option<Vec<entry::File>> {
+	pub(super) fn remove_dir(&mut self, path: impl AsRef<std::path::Path>) -> Option<Vec<File>> {
 		let p = normalized_path(path);
 		if p.is_empty() {
 			self.dirs.clear();
@@ -166,7 +167,7 @@ impl RootIndex {
 	}
 
 	// Removes the file in the given path.
-	pub(super) fn remove_file(&mut self, path: impl AsRef<std::path::Path>) -> Option<entry::File> {
+	pub(super) fn remove_file(&mut self, path: impl AsRef<std::path::Path>) -> Option<File> {
 		let p = normalized_path(path);
 		if let Some(index) = self.all().file_index(&p) {
 			return Some(self.files.remove(index));
@@ -175,7 +176,7 @@ impl RootIndex {
 	}
 
 	pub fn calculate_all(&mut self) -> io::Result<()> {
-		let mut buf = Vec::with_capacity(super::BUF_SIZE);
+		let mut buf = Vec::with_capacity(BUF_SIZE);
 		for metadata in &mut self.files {
 			metadata.checksum.calculate(&NativeFileReader, metadata.meta.path(), &mut buf)?;
 		}
@@ -183,7 +184,8 @@ impl RootIndex {
 		Ok(())
 	}
 
-	pub(super) fn normalize(&mut self) {
+	// TODO: Make this private.
+	pub fn normalize(&mut self) {
 		self.files.sort_by(|a, b| a.meta.path().cmp(b.meta.path()));
 		self.dirs.sort_by(|a, b| a.meta.path().cmp(b.meta.path()));
 		debug_assert!(self.validate());
