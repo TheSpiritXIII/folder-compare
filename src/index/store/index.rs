@@ -7,4 +7,7 @@ pub trait Index {
 
 	/// Returns the total number of directories.
 	fn dir_count(&self) -> usize;
+
+	/// Returns the total size of all files.
+	fn file_size(&self) -> u128;
 }

@@ -11,11 +11,6 @@ pub struct SubIndex<'a> {
 }
 
 impl SubIndex<'_> {
-	/// Returns the total size of all files.
-	pub fn file_size(&self) -> u128 {
-		self.files.iter().map(|entry| entry.size).map(u128::from).sum()
-	}
-
 	pub(super) fn dir_index(&self, path: &str) -> Option<usize> {
 		if path.is_empty() {
 			return None;

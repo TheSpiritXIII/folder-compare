@@ -43,6 +43,10 @@ where
 	fn dir_count(&self) -> usize {
 		self.dirs().len()
 	}
+
+	fn file_size(&self) -> u128 {
+		self.files().iter().map(|entry| entry.size).map(u128::from).sum()
+	}
 }
 
 #[derive(Serialize, Deserialize)]
