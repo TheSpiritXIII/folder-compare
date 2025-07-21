@@ -8,6 +8,7 @@ use anyhow::Context;
 use anyhow::Result;
 
 use crate::index::Diff;
+use crate::index::Index;
 use crate::index::RootIndex;
 use crate::util::display::percentage;
 use crate::util::terminal::clear_line;

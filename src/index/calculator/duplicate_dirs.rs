@@ -7,6 +7,7 @@ use crate::index::model::Checksum;
 use crate::index::model::Dir;
 use crate::index::model::File;
 use crate::index::model::NativeFileReader;
+use crate::index::Index;
 use crate::index::SubIndex;
 use crate::index::BUF_SIZE;
 

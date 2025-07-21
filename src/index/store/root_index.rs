@@ -20,7 +20,30 @@ use crate::index::model::Dir;
 use crate::index::model::File;
 use crate::index::model::NativeFileReader;
 use crate::index::Allowlist;
+use crate::index::Index;
 use crate::index::BUF_SIZE;
+
+pub trait SliceIndex {
+	fn files(&self) -> &[File];
+	fn dirs(&self) -> &[Dir];
+}
+
+impl<T> Index for T
+where
+	T: SliceIndex,
+{
+	fn entry_count(&self) -> usize {
+		self.files().len() + self.dirs().len()
+	}
+
+	fn file_count(&self) -> usize {
+		self.files().len()
+	}
+
+	fn dir_count(&self) -> usize {
+		self.dirs().len()
+	}
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct RootIndex {
@@ -210,14 +233,6 @@ impl RootIndex {
 		Ok(index)
 	}
 
-	pub fn entry_count(&self) -> usize {
-		self.files.len() + self.dirs.len()
-	}
-
-	pub fn file_count(&self) -> usize {
-		self.files.len()
-	}
-
 	pub fn calculate_matches(
 		&mut self,
 		notifier: impl FnMut(&str),
@@ -338,5 +353,15 @@ impl RootIndex {
 		}
 		// TODO: Ensure that each dir is represented. Extract from files.
 		true
+	}
+}
+
+impl SliceIndex for RootIndex {
+	fn files(&self) -> &[File] {
+		&self.files
+	}
+
+	fn dirs(&self) -> &[Dir] {
+		&self.dirs
 	}
 }

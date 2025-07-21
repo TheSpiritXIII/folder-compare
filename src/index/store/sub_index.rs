@@ -1,5 +1,6 @@
 use crate::index::model::Dir;
 use crate::index::model::File;
+use crate::index::store::root_index::SliceIndex;
 
 /// Signifies a directory and its contents from an index.
 pub struct SubIndex<'a> {
@@ -10,21 +11,6 @@ pub struct SubIndex<'a> {
 }
 
 impl SubIndex<'_> {
-	/// Returns the total number of entries in this sub-index.
-	pub fn entry_count(&self) -> usize {
-		self.files.len() + self.dirs.len()
-	}
-
-	/// Returns the total number of directories in this sub-index.
-	pub fn file_count(&self) -> usize {
-		self.files.len()
-	}
-
-	/// Returns the total number of directories in this sub-index.
-	pub fn dir_count(&self) -> usize {
-		self.dirs.len()
-	}
-
 	/// Returns the total size of all files.
 	pub fn file_size(&self) -> u128 {
 		self.files.iter().map(|entry| entry.size).map(u128::from).sum()
@@ -88,5 +74,15 @@ impl SubIndex<'_> {
 			files: &self.files[file_start..file_end],
 			dirs: &self.dirs[dir_start..dir_end],
 		}
+	}
+}
+
+impl SliceIndex for SubIndex<'_> {
+	fn files(&self) -> &[File] {
+		self.files
+	}
+
+	fn dirs(&self) -> &[Dir] {
+		self.dirs
 	}
 }
