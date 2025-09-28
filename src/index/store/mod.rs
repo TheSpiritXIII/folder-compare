@@ -6,6 +6,6 @@ mod sub_index;
 #[cfg(test)]
 mod sub_index_test;
 
-pub use index::Index;
+pub use index::*;
 pub use root_index::RootIndex;
 pub use sub_index::SubIndex;

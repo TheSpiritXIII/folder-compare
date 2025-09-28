@@ -1,6 +1,8 @@
 use crate::index::model::Dir;
 use crate::index::model::File;
-use crate::index::store::root_index::SliceIndex;
+use crate::index::store::SliceIndex;
+use crate::index::store::SortedSliceIndex;
+use crate::index::store::SortedSliceIndexOpts;
 
 /// Signifies a directory and its contents from an index.
 pub struct SubIndex<'a> {
@@ -11,52 +13,6 @@ pub struct SubIndex<'a> {
 }
 
 impl SubIndex<'_> {
-	pub(super) fn dir_index(&self, path: &str) -> Option<usize> {
-		if path.is_empty() {
-			return None;
-		}
-		self.dirs.binary_search_by(|entry| entry.meta.path().cmp(path)).ok()
-	}
-
-	pub(super) fn dir_children_indices(&self, dir_index: usize) -> (usize, usize) {
-		let dir = &self.dirs[dir_index];
-		// Don't include itself in the sub-index.
-		let dir_start = dir_index + 1;
-		let mut dir_end = dir_start;
-		for entry in &self.dirs[dir_start..] {
-			if !entry.meta.is_child_of(dir.meta.path()) {
-				break;
-			}
-			dir_end += 1;
-		}
-		(dir_start, dir_end)
-	}
-
-	pub(super) fn file_index(&self, p: &str) -> Option<usize> {
-		self.files.binary_search_by(|entry| entry.meta.path().cmp(p)).ok()
-	}
-
-	// TODO: Make this private.
-	pub fn dir_file_indices(&self, p: &str) -> (usize, usize) {
-		if p.is_empty() {
-			return (0, self.files.len());
-		}
-
-		let mut path_normal = p.to_owned();
-		path_normal.push('/');
-		let start = match self.files.binary_search_by(|entry| entry.meta.path().cmp(&path_normal)) {
-			Ok(index) | Err(index) => index,
-		};
-		let mut end = start;
-		for entry in &self.files[start..] {
-			if !entry.meta.is_child_of(p) {
-				break;
-			}
-			end += 1;
-		}
-		(start, end)
-	}
-
 	// Returns the sub-index of the given directory index.
 	pub fn sub_index(&self, dir_index: usize) -> SubIndex<'_> {
 		debug_assert!(dir_index < self.dirs.len());
@@ -81,3 +37,5 @@ impl SliceIndex for SubIndex<'_> {
 		self.dirs
 	}
 }
+
+impl SortedSliceIndex for SubIndex<'_> {}

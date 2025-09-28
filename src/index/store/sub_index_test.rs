@@ -1,5 +1,6 @@
 use super::RootIndex;
 use crate::index::builder::PathIndexBuilder;
+use crate::index::store::SortedSliceIndexOpts;
 use crate::index::Index;
 
 fn test_store() -> RootIndex {

@@ -19,35 +19,11 @@ use crate::index::model::normalized_path;
 use crate::index::model::Dir;
 use crate::index::model::File;
 use crate::index::model::NativeFileReader;
+use crate::index::store::SliceIndex;
+use crate::index::store::SortedSliceIndex;
+use crate::index::store::SortedSliceIndexOpts;
 use crate::index::Allowlist;
-use crate::index::Index;
 use crate::index::BUF_SIZE;
-
-pub trait SliceIndex {
-	fn files(&self) -> &[File];
-	fn dirs(&self) -> &[Dir];
-}
-
-impl<T> Index for T
-where
-	T: SliceIndex,
-{
-	fn entry_count(&self) -> usize {
-		self.files().len() + self.dirs().len()
-	}
-
-	fn file_count(&self) -> usize {
-		self.files().len()
-	}
-
-	fn dir_count(&self) -> usize {
-		self.dirs().len()
-	}
-
-	fn file_size(&self) -> u128 {
-		self.files().iter().map(|entry| entry.size).map(u128::from).sum()
-	}
-}
 
 #[derive(Serialize, Deserialize)]
 pub struct RootIndex {
@@ -185,18 +161,18 @@ impl RootIndex {
 			self.dirs.clear();
 			return Some(self.files.drain(0..self.files.len()).collect());
 		}
-		let start = self.all().dir_index(&p)?;
-		let (_, end) = self.all().dir_children_indices(start);
+		let start = self.dir_index(&p)?;
+		let (_, end) = self.dir_children_indices(start);
 		self.dirs.drain(start..end);
 
-		let (start, end) = self.all().dir_file_indices(&p);
+		let (start, end) = self.dir_file_indices(&p);
 		Some(self.files.drain(start..end).collect())
 	}
 
 	// Removes the file in the given path.
 	pub(super) fn remove_file(&mut self, path: impl AsRef<std::path::Path>) -> Option<File> {
 		let p = normalized_path(path);
-		if let Some(index) = self.all().file_index(&p) {
+		if let Some(index) = self.file_index(&p) {
 			return Some(self.files.remove(index));
 		}
 		None
@@ -269,10 +245,9 @@ impl RootIndex {
 
 	pub fn sub_index(&self, dir: impl AsRef<Path>) -> Option<SubIndex<'_>> {
 		let p = normalized_path(dir);
-		let all = self.all();
-		let dir_index = all.dir_index(&p)?;
-		let (dir_start, dir_end) = all.dir_children_indices(dir_index);
-		let (file_start, file_end) = all.dir_file_indices(&p);
+		let dir_index = self.dir_index(&p)?;
+		let (dir_start, dir_end) = self.dir_children_indices(dir_index);
+		let (file_start, file_end) = self.dir_file_indices(&p);
 		println!(
 			"start {} end {}, real {}",
 			file_start,
@@ -369,3 +344,5 @@ impl SliceIndex for RootIndex {
 		&self.dirs
 	}
 }
+
+impl SortedSliceIndex for RootIndex {}
