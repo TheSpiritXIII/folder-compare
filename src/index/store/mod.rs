@@ -7,5 +7,5 @@ mod sub_index;
 mod sub_index_test;
 
 pub use index::*;
-pub use root_index::RootIndex;
-pub use sub_index::SubIndex;
+pub use root_index::*;
+pub use sub_index::*;

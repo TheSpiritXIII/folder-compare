@@ -4,11 +4,10 @@ use std::time::SystemTime;
 
 use super::Allowlist;
 use crate::index::model::Checksum;
-use crate::index::model::Dir;
-use crate::index::model::File;
 use crate::index::model::NativeFileReader;
 use crate::index::store::SliceIndex;
 use crate::index::store::SortedSliceIndexOpts;
+use crate::index::store::SubIndexMut;
 use crate::index::Index;
 use crate::index::SubIndex;
 use crate::index::BUF_SIZE;
@@ -33,8 +32,7 @@ fn dir_stats(index: &SubIndex) -> DirStats {
 	clippy::too_many_arguments
 )]
 pub fn calculate_dir_matches(
-	files: &mut [File],
-	dirs: &mut [Dir],
+	mut index: SubIndexMut<'_>,
 	dirty: &mut bool,
 	mut notifier: impl FnMut(&str),
 	allowlist: &Allowlist,
@@ -42,7 +40,6 @@ pub fn calculate_dir_matches(
 	match_created: bool,
 	match_modified: bool,
 ) -> io::Result<()> {
-	let index = SubIndex::new(files, dirs);
 	let mut dirs_by_stats = HashMap::<DirStats, Vec<usize>>::new();
 	for (dir_index, dir) in index.dirs().iter().enumerate() {
 		let sub_index = index.sub_index(dir_index);
@@ -132,7 +129,7 @@ pub fn calculate_dir_matches(
 
 	let mut buf = Vec::with_capacity(BUF_SIZE);
 	for (file_index, matched) in file_matched.iter().enumerate() {
-		let file = &mut files[file_index];
+		let file = &mut index.files_mut()[file_index];
 		notifier(file.meta.path());
 		if !matched {
 			continue;

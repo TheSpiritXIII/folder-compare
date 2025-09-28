@@ -22,6 +22,7 @@ use crate::index::model::NativeFileReader;
 use crate::index::store::SliceIndex;
 use crate::index::store::SortedSliceIndex;
 use crate::index::store::SortedSliceIndexOpts;
+use crate::index::store::SubIndexMut;
 use crate::index::Allowlist;
 use crate::index::BUF_SIZE;
 
@@ -270,8 +271,10 @@ impl RootIndex {
 		match_modified: bool,
 	) -> io::Result<()> {
 		calculate_dir_matches(
-			&mut self.files,
-			&mut self.dirs,
+			SubIndexMut {
+				files: &mut self.files,
+				dirs: &mut self.dirs,
+			},
 			&mut self.dirty,
 			notifier,
 			allowlist,
