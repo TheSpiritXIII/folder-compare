@@ -260,14 +260,14 @@ impl RootIndex {
 		duplicates(&self.files, allowlist)
 	}
 
-	pub fn all(&self) -> SubIndex {
+	pub fn all(&self) -> SubIndex<'_> {
 		SubIndex {
 			files: &self.files,
 			dirs: &self.dirs,
 		}
 	}
 
-	pub fn sub_index(&self, dir: impl AsRef<Path>) -> Option<SubIndex> {
+	pub fn sub_index(&self, dir: impl AsRef<Path>) -> Option<SubIndex<'_>> {
 		let p = normalized_path(dir);
 		let all = self.all();
 		let dir_index = all.dir_index(&p)?;

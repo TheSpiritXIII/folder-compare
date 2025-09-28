@@ -58,7 +58,7 @@ impl SubIndex<'_> {
 	}
 
 	// Returns the sub-index of the given directory index.
-	pub fn sub_index(&self, dir_index: usize) -> SubIndex {
+	pub fn sub_index(&self, dir_index: usize) -> SubIndex<'_> {
 		debug_assert!(dir_index < self.dirs.len());
 
 		let dir = &self.dirs[dir_index];
