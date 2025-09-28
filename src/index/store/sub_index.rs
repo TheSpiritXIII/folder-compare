@@ -6,13 +6,19 @@ use crate::index::store::SortedSliceIndexOpts;
 
 /// Signifies a directory and its contents from an index.
 pub struct SubIndex<'a> {
-	// TODO: Make this private.
-	pub files: &'a [File],
-	// TODO: Make this private.
-	pub dirs: &'a [Dir],
+	pub(crate) files: &'a [File],
+	pub(crate) dirs: &'a [Dir],
 }
 
-impl SubIndex<'_> {
+impl<'a> SubIndex<'a> {
+	// TODO: Make this private.
+	pub fn new(files: &'a [File], dirs: &'a [Dir]) -> Self {
+		Self {
+			files,
+			dirs,
+		}
+	}
+
 	// Returns the sub-index of the given directory index.
 	pub fn sub_index(&self, dir_index: usize) -> SubIndex<'_> {
 		debug_assert!(dir_index < self.dirs.len());

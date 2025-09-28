@@ -7,6 +7,7 @@ use crate::index::model::Checksum;
 use crate::index::model::Dir;
 use crate::index::model::File;
 use crate::index::model::NativeFileReader;
+use crate::index::store::SliceIndex;
 use crate::index::store::SortedSliceIndexOpts;
 use crate::index::Index;
 use crate::index::SubIndex;
@@ -41,12 +42,9 @@ pub fn calculate_dir_matches(
 	match_created: bool,
 	match_modified: bool,
 ) -> io::Result<()> {
-	let index = SubIndex {
-		files,
-		dirs,
-	};
+	let index = SubIndex::new(files, dirs);
 	let mut dirs_by_stats = HashMap::<DirStats, Vec<usize>>::new();
-	for (dir_index, dir) in index.dirs.iter().enumerate() {
+	for (dir_index, dir) in index.dirs().iter().enumerate() {
 		let sub_index = index.sub_index(dir_index);
 		let stats = dir_stats(&sub_index);
 		if stats.file_size == 0 {
@@ -58,7 +56,7 @@ pub fn calculate_dir_matches(
 		dirs_by_stats.entry(stats).or_default().push(dir_index);
 	}
 
-	let mut file_matched = vec![false; index.files.len()];
+	let mut file_matched = vec![false; index.files().len()];
 	for (_, path_list) in dirs_by_stats {
 		if path_list.len() < 2 {
 			continue;
@@ -71,7 +69,7 @@ pub fn calculate_dir_matches(
 		let mut modified_list = vec![Vec::new(); path_list.len()];
 		for dir_index in &path_list {
 			let sub_index = index.sub_index(*dir_index);
-			let file_list = sub_index.files;
+			let file_list = sub_index.files();
 			if match_name {
 				name_list[*dir_index] =
 					file_list.iter().map(|entry| entry.meta.path().to_string()).collect();
@@ -102,7 +100,7 @@ pub fn calculate_dir_matches(
 		}
 
 		for dir_index in &path_list {
-			let dir = &index.dirs[*dir_index];
+			let dir = &index.dirs()[*dir_index];
 			if match_name {
 				if let Some(count) = name_by_count.get(&name_list[*dir_index]) {
 					if *count < 2 {
@@ -150,7 +148,7 @@ pub fn calculate_dir_matches(
 
 pub fn duplicate_dirs(index: &SubIndex, allowlist: &Allowlist) -> Vec<Vec<String>> {
 	let mut dirs_by_checksums = HashMap::<(DirStats, Vec<Checksum>), Vec<String>>::new();
-	for (dir_index, dir) in index.dirs.iter().enumerate() {
+	for (dir_index, dir) in index.dirs().iter().enumerate() {
 		if !allowlist.is_allowed(&dir.meta.path) {
 			continue;
 		}
@@ -162,7 +160,7 @@ pub fn duplicate_dirs(index: &SubIndex, allowlist: &Allowlist) -> Vec<Vec<String
 		}
 
 		let mut file_checksums: Vec<_> =
-			sub_index.files.iter().map(|entry| entry.checksum.clone()).collect();
+			sub_index.files().iter().map(|entry| entry.checksum.clone()).collect();
 		file_checksums.sort();
 
 		dirs_by_checksums
