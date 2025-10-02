@@ -225,13 +225,15 @@ impl RootIndex {
 	) -> io::Result<()> {
 		let mut buf = Vec::with_capacity(BUF_SIZE);
 		let mut updated = false;
-		for file in calculator::potential_file_matches(
+		let list: Vec<_> = calculator::potential_file_matches(
 			&self.files,
 			allowlist,
 			match_name,
 			match_created,
 			match_modified,
-		) {
+		)
+		.collect();
+		for file in list {
 			let file = &mut self.files[file];
 			notifier(file.meta.path());
 			if file.checksum.is_empty() {

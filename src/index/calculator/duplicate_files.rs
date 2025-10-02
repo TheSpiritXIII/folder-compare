@@ -53,13 +53,13 @@ impl FileAttributeCounter<SystemTime> {
 	}
 }
 
-pub fn potential_file_matches(
-	files: &[File],
+pub fn potential_file_matches<'a>(
+	files: &'a [File],
 	allowlist: &Allowlist,
 	match_name: bool,
 	match_created: bool,
 	match_modified: bool,
-) -> impl Iterator<Item = usize> {
+) -> impl Iterator<Item = usize> + use<'a> {
 	let mut file_index_by_size = HashMap::<u64, Vec<usize>>::new();
 	for (file_index, file) in files.iter().enumerate() {
 		if !allowlist.is_allowed(&file.meta.path) {
@@ -68,49 +68,39 @@ pub fn potential_file_matches(
 		file_index_by_size.entry(file.size).or_default().push(file_index);
 	}
 
-	let mut file_matched = vec![false; files.len()];
-	for path_list in file_index_by_size.values() {
-		if path_list.len() < 2 {
-			continue;
-		}
-		let mut name_counter = FileAttributeCounter::with_name_matcher();
-		let mut created_counter = FileAttributeCounter::with_created_matcher();
-		let mut modified_counter = FileAttributeCounter::with_modified_matcher();
-		for file_index in path_list {
-			let file = &files[*file_index];
-			if match_name {
-				name_counter.record(file);
-			}
-			if match_created {
-				created_counter.record(file);
-			}
-			if match_modified {
-				modified_counter.record(file);
-			}
-		}
-
-		for file_index in path_list {
-			let file = &files[*file_index];
-			if match_name && !name_counter.has_matches(file) {
-				continue;
-			}
-			if match_created && !created_counter.has_matches(file) {
-				continue;
-			}
-			if match_modified && !modified_counter.has_matches(file) {
-				continue;
+	file_index_by_size.into_values().filter(|path_list| path_list.len() > 1).flat_map(
+		move |path_list| {
+			let mut name_counter = FileAttributeCounter::with_name_matcher();
+			let mut created_counter = FileAttributeCounter::with_created_matcher();
+			let mut modified_counter = FileAttributeCounter::with_modified_matcher();
+			for file_index in &path_list {
+				let file = &files[*file_index];
+				if match_name {
+					name_counter.record(file);
+				}
+				if match_created {
+					created_counter.record(file);
+				}
+				if match_modified {
+					modified_counter.record(file);
+				}
 			}
 
-			file_matched[*file_index] = true;
-		}
-	}
-
-	file_matched.into_iter().enumerate().filter_map(|(file_index, matched)| {
-		if !matched {
-			return None;
-		}
-		Some(file_index)
-	})
+			path_list.into_iter().filter(move |file_index| {
+				let file = &files[*file_index];
+				if match_name && !name_counter.has_matches(file) {
+					return false;
+				}
+				if match_created && !created_counter.has_matches(file) {
+					return false;
+				}
+				if match_modified && !modified_counter.has_matches(file) {
+					return false;
+				}
+				true
+			})
+		},
+	)
 }
 
 pub fn duplicates(files: &[File], allowlist: &Allowlist) -> Vec<Vec<String>> {
