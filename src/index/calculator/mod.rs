@@ -1,5 +1,7 @@
 mod allowlist;
 mod diff;
+#[cfg(test)]
+mod diff_test;
 mod duplicate_dirs;
 mod duplicate_files;
 #[cfg(test)]

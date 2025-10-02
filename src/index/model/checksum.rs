@@ -36,7 +36,7 @@ fn sha512_checksum(
 
 #[derive(Serialize, Deserialize, Eq, PartialEq, Hash, Clone, Default, PartialOrd, Ord)]
 pub struct Checksum {
-	sha512: String,
+	pub sha512: String,
 }
 
 impl Checksum {

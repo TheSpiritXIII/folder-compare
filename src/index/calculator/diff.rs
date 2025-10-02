@@ -6,6 +6,7 @@ use crate::index::model::File;
 use crate::index::model::NativeFileReader;
 use crate::index::BUF_SIZE;
 
+#[derive(Debug, Eq, PartialEq)]
 pub enum Diff {
 	Added(String),
 	Removed(String),
