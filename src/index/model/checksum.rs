@@ -34,7 +34,7 @@ fn sha512_checksum(
 	Ok(format!("{:x}", hasher.finalize()))
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Hash, Clone, Default, PartialOrd, Ord)]
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Hash, Clone, Default, PartialOrd, Ord)]
 pub struct Checksum {
 	pub sha512: String,
 }

@@ -38,13 +38,27 @@ pub fn diff(
 	loop {
 		if file_index_self == self_files.len() {
 			for file in &other_files[file_index_other..] {
-				diff_list.push(Diff::Removed(file.meta.path().to_string()));
+				if file.checksum.is_empty() {
+					diff_list.push(Diff::Removed(file.meta.path().to_string()));
+				} else {
+					file_index_other_by_checksum
+						.entry((file.checksum.clone(), file.size))
+						.or_default()
+						.push(file_index_other);
+				}
 			}
 			break;
 		}
 		if file_index_other == other_files.len() {
 			for file in &self_files[file_index_self..] {
-				diff_list.push(Diff::Added(file.meta.path().to_string()));
+				if file.checksum.is_empty() {
+					diff_list.push(Diff::Added(file.meta.path().to_string()));
+				} else {
+					file_index_self_by_checksum
+						.entry((file.checksum.clone(), file.size))
+						.or_default()
+						.push(file_index_self);
+				}
 			}
 			break;
 		}

@@ -131,6 +131,5 @@ fn diff_moved() {
 		false,
 	)
 	.unwrap();
-	// TODO: Fix this test.
-	// assert_eq!(diffs, vec![Diff::Moved("a".to_string(), "a".to_string())]);
+	assert_eq!(diffs, vec![Diff::Moved("a".to_string(), "b".to_string())]);
 }
