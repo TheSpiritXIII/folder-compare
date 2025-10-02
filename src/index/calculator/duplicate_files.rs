@@ -1,13 +1,10 @@
 use std::collections::HashMap;
 use std::hash::Hash;
-use std::io;
 use std::time::SystemTime;
 
 use super::Allowlist;
 use crate::index::model::Checksum;
 use crate::index::model::File;
-use crate::index::model::NativeFileReader;
-use crate::index::BUF_SIZE;
 
 struct FileAttributeCounter<T: Eq + Hash> {
 	attribute_by_index: HashMap<T, usize>,
@@ -114,29 +111,6 @@ pub fn potential_file_matches(
 		}
 		Some(file_index)
 	})
-}
-
-#[allow(clippy::too_many_arguments)]
-pub fn calculate_matches(
-	files: &mut [File],
-	dirty: &mut bool,
-	mut notifier: impl FnMut(&str),
-	allowlist: &Allowlist,
-	match_name: bool,
-	match_created: bool,
-	match_modified: bool,
-) -> io::Result<()> {
-	let mut buf = Vec::with_capacity(BUF_SIZE);
-	for file in potential_file_matches(files, allowlist, match_name, match_created, match_modified)
-	{
-		let file = &mut files[file];
-		notifier(file.meta.path());
-		if file.checksum.is_empty() {
-			file.checksum.calculate(&NativeFileReader, file.meta.path(), &mut buf)?;
-			*dirty = true;
-		}
-	}
-	Ok(())
 }
 
 pub fn duplicates(files: &[File], allowlist: &Allowlist) -> Vec<Vec<String>> {

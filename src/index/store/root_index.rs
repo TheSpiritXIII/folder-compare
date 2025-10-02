@@ -9,8 +9,8 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use super::sub_index::SubIndex;
+use crate::index::calculator;
 use crate::index::calculator::calculate_dir_matches;
-use crate::index::calculator::calculate_matches;
 use crate::index::calculator::diff;
 use crate::index::calculator::duplicate_dirs;
 use crate::index::calculator::duplicates;
@@ -214,23 +214,33 @@ impl RootIndex {
 		Ok(index)
 	}
 
+	// TODO: Add check-pointing for long-running operations.
 	pub fn calculate_matches(
 		&mut self,
-		notifier: impl FnMut(&str),
+		mut notifier: impl FnMut(&str),
 		allowlist: &Allowlist,
 		match_name: bool,
 		match_created: bool,
 		match_modified: bool,
 	) -> io::Result<()> {
-		calculate_matches(
-			&mut self.files,
-			&mut self.dirty,
-			notifier,
+		let mut buf = Vec::with_capacity(BUF_SIZE);
+		let mut updated = false;
+		for file in calculator::potential_file_matches(
+			&self.files,
 			allowlist,
 			match_name,
 			match_created,
 			match_modified,
-		)
+		) {
+			let file = &mut self.files[file];
+			notifier(file.meta.path());
+			if file.checksum.is_empty() {
+				file.checksum.calculate(&NativeFileReader, file.meta.path(), &mut buf)?;
+				updated = true;
+			}
+		}
+		self.dirty = updated || self.dirty;
+		Ok(())
 	}
 
 	pub fn duplicates(&self, allowlist: &Allowlist) -> Vec<Vec<String>> {
