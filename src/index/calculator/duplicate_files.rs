@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::hash::Hash;
 use std::io;
 use std::time::SystemTime;
 
@@ -8,16 +9,60 @@ use crate::index::model::File;
 use crate::index::model::NativeFileReader;
 use crate::index::BUF_SIZE;
 
-#[allow(clippy::too_many_arguments)]
-pub fn calculate_matches(
-	files: &mut [File],
-	dirty: &mut bool,
-	mut notifier: impl FnMut(&str),
+struct FileAttributeCounter<T: Eq + Hash> {
+	attribute_by_index: HashMap<T, usize>,
+	attribute_fn: fn(&File) -> T,
+}
+
+impl<T> FileAttributeCounter<T>
+where
+	T: Eq + Hash,
+{
+	fn new(f: fn(&File) -> T) -> Self {
+		Self {
+			attribute_by_index: HashMap::new(),
+			attribute_fn: f,
+		}
+	}
+
+	fn record(&mut self, file: &File) {
+		let attribute = (self.attribute_fn)(file);
+		let count = self.attribute_by_index.entry(attribute).or_default();
+		*count += 1;
+	}
+
+	fn has_matches(&self, file: &File) -> bool {
+		let attribute = (self.attribute_fn)(file);
+		let Some(count) = self.attribute_by_index.get(&attribute) else {
+			return false;
+		};
+		*count > 1
+	}
+}
+
+impl FileAttributeCounter<String> {
+	fn with_name_matcher() -> Self {
+		Self::new(|file| file.meta.name().to_owned())
+	}
+}
+
+impl FileAttributeCounter<SystemTime> {
+	fn with_modified_matcher() -> Self {
+		Self::new(|file| file.meta.modified_time)
+	}
+
+	fn with_created_matcher() -> Self {
+		Self::new(|file| file.meta.created_time)
+	}
+}
+
+pub fn potential_file_matches(
+	files: &[File],
 	allowlist: &Allowlist,
 	match_name: bool,
 	match_created: bool,
 	match_modified: bool,
-) -> io::Result<()> {
+) -> impl Iterator<Item = usize> {
 	let mut file_index_by_size = HashMap::<u64, Vec<usize>>::new();
 	for (file_index, file) in files.iter().enumerate() {
 		if !allowlist.is_allowed(&file.meta.path) {
@@ -31,67 +76,61 @@ pub fn calculate_matches(
 		if path_list.len() < 2 {
 			continue;
 		}
-		let mut name_by_count = HashMap::<String, usize>::new();
-		let mut created_by_count = HashMap::<SystemTime, usize>::new();
-		let mut modified_by_count = HashMap::<SystemTime, usize>::new();
+		let mut name_counter = FileAttributeCounter::with_name_matcher();
+		let mut created_counter = FileAttributeCounter::with_created_matcher();
+		let mut modified_counter = FileAttributeCounter::with_modified_matcher();
 		for file_index in path_list {
 			let file = &files[*file_index];
 			if match_name {
-				name_by_count
-					.entry(file.meta.name().to_string())
-					.and_modify(|count| *count += 1)
-					.or_insert(1);
+				name_counter.record(file);
 			}
 			if match_created {
-				created_by_count
-					.entry(file.meta.created_time())
-					.and_modify(|count| *count += 1)
-					.or_insert(1);
+				created_counter.record(file);
 			}
 			if match_modified {
-				modified_by_count
-					.entry(file.meta.modified_time())
-					.and_modify(|count| *count += 1)
-					.or_insert(1);
+				modified_counter.record(file);
 			}
 		}
 
 		for file_index in path_list {
 			let file = &files[*file_index];
-			if match_name {
-				if let Some(count) = name_by_count.get(file.meta.name()) {
-					if *count < 2 {
-						continue;
-					}
-				}
+			if match_name && !name_counter.has_matches(file) {
+				continue;
 			}
-			if match_created {
-				if let Some(count) = created_by_count.get(&file.meta.modified_time()) {
-					if *count < 2 {
-						continue;
-					}
-				}
+			if match_created && !created_counter.has_matches(file) {
+				continue;
 			}
-			if match_modified {
-				if let Some(count) = modified_by_count.get(&file.meta.modified_time()) {
-					if *count < 2 {
-						continue;
-					}
-				}
+			if match_modified && !modified_counter.has_matches(file) {
+				continue;
 			}
 
 			file_matched[*file_index] = true;
 		}
 	}
 
-	let mut buf = Vec::with_capacity(BUF_SIZE);
-	for (file_index, matched) in file_matched.iter().enumerate() {
-		let file = &mut files[file_index];
-		notifier(file.meta.path());
+	file_matched.into_iter().enumerate().filter_map(|(file_index, matched)| {
 		if !matched {
-			continue;
+			return None;
 		}
+		Some(file_index)
+	})
+}
 
+#[allow(clippy::too_many_arguments)]
+pub fn calculate_matches(
+	files: &mut [File],
+	dirty: &mut bool,
+	mut notifier: impl FnMut(&str),
+	allowlist: &Allowlist,
+	match_name: bool,
+	match_created: bool,
+	match_modified: bool,
+) -> io::Result<()> {
+	let mut buf = Vec::with_capacity(BUF_SIZE);
+	for file in potential_file_matches(files, allowlist, match_name, match_created, match_modified)
+	{
+		let file = &mut files[file];
+		notifier(file.meta.path());
 		if file.checksum.is_empty() {
 			file.checksum.calculate(&NativeFileReader, file.meta.path(), &mut buf)?;
 			*dirty = true;
