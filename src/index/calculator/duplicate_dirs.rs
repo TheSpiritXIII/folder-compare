@@ -5,7 +5,6 @@ use super::Allowlist;
 use crate::index::model::Checksum;
 use crate::index::store::SliceIndex;
 use crate::index::store::SortedSliceIndexOpts;
-use crate::index::store::SubIndexMut;
 use crate::index::Index;
 use crate::index::SubIndex;
 
@@ -25,7 +24,7 @@ fn dir_stats(index: &SubIndex) -> DirStats {
 }
 
 pub fn potential_dir_matches(
-	index: &SubIndexMut<'_>,
+	index: &SubIndex<'_>,
 	allowlist: &Allowlist,
 	match_name: bool,
 	match_created: bool,

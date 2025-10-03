@@ -7,31 +7,23 @@ use crate::index::model::File;
 use crate::index::model::NativeFileReader;
 use crate::index::store::SliceIndex;
 use crate::index::store::SortedSliceIndex;
-use crate::index::store::SortedSliceIndexOpts;
 use crate::index::Allowlist;
 use crate::index::SubIndex;
 use crate::index::BUF_SIZE;
 
 /// Mutable version of `SubIndex`.
 pub struct SubIndexMut<'a> {
-	// TODO: Add dirty flag here. Then we can move operations here.
 	pub(super) dirty: &'a mut bool,
 	pub(super) files: &'a mut [File],
 	pub(super) dirs: &'a mut [Dir],
 }
 
 impl SubIndexMut<'_> {
-	// Returns the sub-index of the given directory index.
-	pub fn sub_index(&self, dir_index: usize) -> SubIndex<'_> {
-		debug_assert!(dir_index < self.dirs.len());
-
-		let dir = &self.dirs[dir_index];
-
-		let (dir_start, dir_end) = self.dir_children_indices(dir_index);
-		let (file_start, file_end) = self.dir_file_indices(&dir.meta.path);
+	// TODO: Make this conversion automatic.
+	pub fn all(&self) -> SubIndex<'_> {
 		SubIndex {
-			files: &self.files[file_start..file_end],
-			dirs: &self.dirs[dir_start..dir_end],
+			files: self.files,
+			dirs: self.dirs,
 		}
 	}
 }
@@ -86,7 +78,7 @@ impl<'a> ChecksumCalculator<'a> {
 	) -> Self {
 		Self {
 			queue: calculator::potential_dir_matches(
-				index,
+				&index.all(),
 				allowlist,
 				match_name,
 				match_created,

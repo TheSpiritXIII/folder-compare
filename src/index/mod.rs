@@ -10,7 +10,7 @@ const BUF_SIZE: usize = 1024 * 8;
 
 pub use calculator::Allowlist;
 pub use calculator::Diff;
+pub use store::ChecksumCalculator;
 pub use store::Index;
 pub use store::RootIndex;
 pub use store::SubIndex;
-pub use store::ChecksumCalculator;
