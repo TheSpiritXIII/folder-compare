@@ -3,14 +3,17 @@ use crate::index::model::File;
 use crate::index::store::SliceIndex;
 use crate::index::store::SortedSliceIndex;
 use crate::index::store::SortedSliceIndexOpts;
+use crate::index::SubIndex;
 
-/// Signifies a directory and its contents from an index.
-pub struct SubIndex<'a> {
-	pub(crate) files: &'a [File],
-	pub(crate) dirs: &'a [Dir],
+/// Mutable version of `SubIndex`.
+pub struct SubIndexMut<'a> {
+	// TODO: Add dirty flag here. Then we can move operations here.
+	// pub(crate) dirty: &'a mut bool,
+	pub(crate) files: &'a mut [File],
+	pub(crate) dirs: &'a mut [Dir],
 }
 
-impl SubIndex<'_> {
+impl SubIndexMut<'_> {
 	// Returns the sub-index of the given directory index.
 	pub fn sub_index(&self, dir_index: usize) -> SubIndex<'_> {
 		debug_assert!(dir_index < self.dirs.len());
@@ -24,9 +27,13 @@ impl SubIndex<'_> {
 			dirs: &self.dirs[dir_start..dir_end],
 		}
 	}
+
+	pub fn files_mut(&mut self) -> &mut [File] {
+		self.files
+	}
 }
 
-impl SliceIndex for SubIndex<'_> {
+impl SliceIndex for SubIndexMut<'_> {
 	fn files(&self) -> &[File] {
 		self.files
 	}
@@ -36,4 +43,4 @@ impl SliceIndex for SubIndex<'_> {
 	}
 }
 
-impl SortedSliceIndex for SubIndex<'_> {}
+impl SortedSliceIndex for SubIndexMut<'_> {}
