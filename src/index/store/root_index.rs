@@ -214,7 +214,15 @@ impl RootIndex {
 		Ok(index)
 	}
 
-	// TODO: Inline.
+	// TODO: Can we make this conversion automatic?
+	pub fn all_mut(&mut self) -> SubIndexMut<'_> {
+		SubIndexMut {
+			files: &mut self.files,
+			dirs: &mut self.dirs,
+		}
+	}
+
+	// TODO: Inline, but we have to move dirty out first.
 	pub fn calculate_matches(
 		&mut self,
 		mut notifier: impl FnMut(&str),
@@ -223,12 +231,9 @@ impl RootIndex {
 		match_created: bool,
 		match_modified: bool,
 	) -> io::Result<()> {
-		let mut index = SubIndexMut {
-			files: &mut self.files,
-			dirs: &mut self.dirs,
-		};
+		let index = &mut self.all_mut();
 		let mut calculator = FileMatchChecksumCalculator::new(
-			&mut index,
+			index,
 			allowlist,
 			match_name,
 			match_created,
