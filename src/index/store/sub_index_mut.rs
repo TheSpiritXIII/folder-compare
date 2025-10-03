@@ -15,7 +15,7 @@ use crate::index::BUF_SIZE;
 /// Mutable version of `SubIndex`.
 pub struct SubIndexMut<'a> {
 	// TODO: Add dirty flag here. Then we can move operations here.
-	// pub(super) dirty: &'a mut bool,
+	pub(super) dirty: &'a mut bool,
 	pub(super) files: &'a mut [File],
 	pub(super) dirs: &'a mut [Dir],
 }
@@ -34,10 +34,6 @@ impl SubIndexMut<'_> {
 			dirs: &self.dirs[dir_start..dir_end],
 		}
 	}
-
-	pub fn files_mut(&mut self) -> &mut [File] {
-		self.files
-	}
 }
 
 impl SliceIndex for SubIndexMut<'_> {
@@ -55,8 +51,7 @@ impl SortedSliceIndex for SubIndexMut<'_> {}
 pub struct ChecksumCalculator<'a> {
 	#[allow(clippy::linkedlist)]
 	queue: LinkedList<usize>,
-	files: &'a mut [File],
-	dirty: bool,
+	index: &'a mut SubIndexMut<'a>,
 	buf: Vec<u8>,
 }
 
@@ -77,8 +72,7 @@ impl<'a> ChecksumCalculator<'a> {
 				match_modified,
 			)
 			.collect(),
-			files: index.files_mut(),
-			dirty: false,
+			index,
 			buf: Vec::with_capacity(BUF_SIZE),
 		}
 	}
@@ -99,28 +93,22 @@ impl<'a> ChecksumCalculator<'a> {
 				match_modified,
 			)
 			.collect(),
-			files: index.files_mut(),
-			dirty: false,
+			index,
 			buf: Vec::with_capacity(BUF_SIZE),
 		}
-	}
-
-	// TODO: Store reference to bool.
-	pub(super) fn dirty(&self) -> bool {
-		self.dirty
 	}
 
 	// TODO: Use a lending iterator if ever added.
 	pub fn next(&mut self) -> Option<io::Result<&File>> {
 		let index = self.queue.pop_back()?;
-		let file = &mut self.files[index];
+		let file = &mut self.index.files[index];
 		if file.checksum.is_empty() {
 			if let Err(e) =
 				file.checksum.calculate(&NativeFileReader, file.meta.path(), &mut self.buf)
 			{
 				return Some(Err(e));
 			}
-			self.dirty = true;
+			*self.index.dirty = true;
 		}
 		Some(Ok(file))
 	}

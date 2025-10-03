@@ -218,6 +218,7 @@ impl RootIndex {
 		SubIndexMut {
 			files: &mut self.files,
 			dirs: &mut self.dirs,
+			dirty: &mut self.dirty,
 		}
 	}
 
@@ -241,7 +242,6 @@ impl RootIndex {
 		while let Some(file) = calculator.next() {
 			notifier(file?.meta.path());
 		}
-		self.dirty = calculator.dirty() || self.dirty;
 		Ok(())
 	}
 
@@ -293,7 +293,6 @@ impl RootIndex {
 		while let Some(file) = calculator.next() {
 			notifier(file?.meta.path());
 		}
-		self.dirty = calculator.dirty() || self.dirty;
 		Ok(())
 	}
 
