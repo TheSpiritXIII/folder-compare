@@ -52,7 +52,7 @@ impl SliceIndex for SubIndexMut<'_> {
 
 impl SortedSliceIndex for SubIndexMut<'_> {}
 
-pub struct FileMatchChecksumCalculator<'a> {
+pub struct ChecksumCalculator<'a> {
 	#[allow(clippy::linkedlist)]
 	queue: LinkedList<usize>,
 	files: &'a mut [File],
@@ -60,8 +60,8 @@ pub struct FileMatchChecksumCalculator<'a> {
 	buf: Vec<u8>,
 }
 
-impl<'a> FileMatchChecksumCalculator<'a> {
-	pub fn new(
+impl<'a> ChecksumCalculator<'a> {
+	pub fn with_file_match(
 		index: &'a mut SubIndexMut<'a>,
 		allowlist: &Allowlist,
 		match_name: bool,
@@ -70,14 +70,36 @@ impl<'a> FileMatchChecksumCalculator<'a> {
 	) -> Self {
 		Self {
 			queue: calculator::potential_file_matches(
-				index.files,
+				index.files(),
 				allowlist,
 				match_name,
 				match_created,
 				match_modified,
 			)
 			.collect(),
-			files: index.files,
+			files: index.files_mut(),
+			dirty: false,
+			buf: Vec::with_capacity(BUF_SIZE),
+		}
+	}
+
+	pub fn with_dir_match(
+		index: &'a mut SubIndexMut<'a>,
+		allowlist: &Allowlist,
+		match_name: bool,
+		match_created: bool,
+		match_modified: bool,
+	) -> Self {
+		Self {
+			queue: calculator::potential_dir_matches(
+				index,
+				allowlist,
+				match_name,
+				match_created,
+				match_modified,
+			)
+			.collect(),
+			files: index.files_mut(),
 			dirty: false,
 			buf: Vec::with_capacity(BUF_SIZE),
 		}

@@ -9,7 +9,6 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use super::sub_index::SubIndex;
-use crate::index::calculator::calculate_dir_matches;
 use crate::index::calculator::diff;
 use crate::index::calculator::duplicate_dirs;
 use crate::index::calculator::duplicates;
@@ -18,7 +17,7 @@ use crate::index::model::normalized_path;
 use crate::index::model::Dir;
 use crate::index::model::File;
 use crate::index::model::NativeFileReader;
-use crate::index::store::FileMatchChecksumCalculator;
+use crate::index::store::ChecksumCalculator;
 use crate::index::store::SliceIndex;
 use crate::index::store::SortedSliceIndex;
 use crate::index::store::SortedSliceIndexOpts;
@@ -232,7 +231,7 @@ impl RootIndex {
 		match_modified: bool,
 	) -> io::Result<()> {
 		let index = &mut self.all_mut();
-		let mut calculator = FileMatchChecksumCalculator::new(
+		let mut calculator = ChecksumCalculator::with_file_match(
 			index,
 			allowlist,
 			match_name,
@@ -274,27 +273,28 @@ impl RootIndex {
 		})
 	}
 
-	#[allow(clippy::too_many_lines)]
+	// TODO: Inline.
 	pub fn calculate_dir_matches(
 		&mut self,
-		notifier: impl FnMut(&str),
+		mut notifier: impl FnMut(&str),
 		allowlist: &Allowlist,
 		match_name: bool,
 		match_created: bool,
 		match_modified: bool,
 	) -> io::Result<()> {
-		calculate_dir_matches(
-			SubIndexMut {
-				files: &mut self.files,
-				dirs: &mut self.dirs,
-			},
-			&mut self.dirty,
-			notifier,
+		let index = &mut self.all_mut();
+		let mut calculator = ChecksumCalculator::with_dir_match(
+			index,
 			allowlist,
 			match_name,
 			match_created,
 			match_modified,
-		)
+		);
+		while let Some(file) = calculator.next() {
+			notifier(file?.meta.path());
+		}
+		self.dirty = calculator.dirty() || self.dirty;
+		Ok(())
 	}
 
 	pub fn duplicate_dirs(&self, allowlist: &Allowlist) -> Vec<Vec<String>> {
