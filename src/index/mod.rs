@@ -13,3 +13,4 @@ pub use calculator::Diff;
 pub use store::Index;
 pub use store::RootIndex;
 pub use store::SubIndex;
+pub use store::ChecksumCalculator;

@@ -7,6 +7,7 @@ use anyhow::Context;
 use anyhow::Result;
 
 use crate::index::Allowlist;
+use crate::index::ChecksumCalculator;
 use crate::index::Index;
 use crate::index::RootIndex;
 use crate::util::display::percentage;
@@ -31,25 +32,25 @@ pub fn duplicates(
 		let total = index.file_count();
 		let mut current = 0usize;
 		let mut countdown = CountdownTimer::new(Duration::from_secs(1));
-		let mut last_path = String::new();
-		index
-			.calculate_dir_matches(
-				|path| {
-					last_path = path.to_string();
-					current += 1;
-					if countdown.passed() {
-						let percent = percentage(current, total);
-						clear_line();
-						print!("Processed {current} of {total} entries ({percent})...: {path}");
-						io::stdout().flush().unwrap();
-					}
-				},
-				allowlist,
-				match_name,
-				match_created,
-				match_modified,
-			)
-			.with_context(|| format!("Comparison failed during dir: {last_path}"))?;
+
+		let sub_index = &mut index.all_mut();
+		let mut calculator = ChecksumCalculator::with_dir_match(
+			sub_index,
+			allowlist,
+			match_name,
+			match_created,
+			match_modified,
+		);
+		while let Some(file) = calculator.next() {
+			let path = file?.meta.path();
+			current += 1;
+			if countdown.passed() {
+				let percent = percentage(current, total);
+				clear_line();
+				print!("Processed {current} of {total} entries ({percent})...: {path}");
+				io::stdout().flush().unwrap();
+			}
+		}
 
 		clear_line();
 		println!("Gathering duplicates...");
@@ -59,26 +60,27 @@ pub fn duplicates(
 		let total = index.file_count();
 		let mut current = 0usize;
 		let mut countdown = CountdownTimer::new(Duration::from_secs(1));
-		let mut last_path = String::new();
-		index
-			.calculate_matches(
-				|path| {
-					// TODO: Add check-pointing for long-running operations.
-					last_path = path.to_string();
-					current += 1;
-					if countdown.passed() {
-						let percent = percentage(current, total);
-						clear_line();
-						print!("Processed {current} of {total} entries ({percent})...: {path}");
-						io::stdout().flush().unwrap();
-					}
-				},
-				allowlist,
-				match_name,
-				match_created,
-				match_modified,
-			)
-			.with_context(|| format!("Comparison failed during file: {last_path}"))?;
+
+		let sub_index = &mut index.all_mut();
+		let mut calculator = ChecksumCalculator::with_file_match(
+			sub_index,
+			allowlist,
+			match_name,
+			match_created,
+			match_modified,
+		);
+		while let Some(file) = calculator.next() {
+			let path = file?.meta.path();
+
+			// TODO: Add check-pointing for long-running operations.
+			current += 1;
+			if countdown.passed() {
+				let percent = percentage(current, total);
+				clear_line();
+				print!("Processed {current} of {total} entries ({percent})...: {path}");
+				io::stdout().flush().unwrap();
+			}
+		}
 
 		clear_line();
 		println!("Gathering duplicates...");

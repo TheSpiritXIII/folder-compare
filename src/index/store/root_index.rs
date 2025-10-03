@@ -17,7 +17,6 @@ use crate::index::model::normalized_path;
 use crate::index::model::Dir;
 use crate::index::model::File;
 use crate::index::model::NativeFileReader;
-use crate::index::store::ChecksumCalculator;
 use crate::index::store::SliceIndex;
 use crate::index::store::SortedSliceIndex;
 use crate::index::store::SortedSliceIndexOpts;
@@ -222,29 +221,6 @@ impl RootIndex {
 		}
 	}
 
-	// TODO: Inline, but we have to move dirty out first.
-	pub fn calculate_matches(
-		&mut self,
-		mut notifier: impl FnMut(&str),
-		allowlist: &Allowlist,
-		match_name: bool,
-		match_created: bool,
-		match_modified: bool,
-	) -> io::Result<()> {
-		let index = &mut self.all_mut();
-		let mut calculator = ChecksumCalculator::with_file_match(
-			index,
-			allowlist,
-			match_name,
-			match_created,
-			match_modified,
-		);
-		while let Some(file) = calculator.next() {
-			notifier(file?.meta.path());
-		}
-		Ok(())
-	}
-
 	pub fn duplicates(&self, allowlist: &Allowlist) -> Vec<Vec<String>> {
 		duplicates(&self.files, allowlist)
 	}
@@ -271,29 +247,6 @@ impl RootIndex {
 			files: &self.files[file_start..file_end],
 			dirs: &self.dirs[dir_start..dir_end],
 		})
-	}
-
-	// TODO: Inline.
-	pub fn calculate_dir_matches(
-		&mut self,
-		mut notifier: impl FnMut(&str),
-		allowlist: &Allowlist,
-		match_name: bool,
-		match_created: bool,
-		match_modified: bool,
-	) -> io::Result<()> {
-		let index = &mut self.all_mut();
-		let mut calculator = ChecksumCalculator::with_dir_match(
-			index,
-			allowlist,
-			match_name,
-			match_created,
-			match_modified,
-		);
-		while let Some(file) = calculator.next() {
-			notifier(file?.meta.path());
-		}
-		Ok(())
 	}
 
 	pub fn duplicate_dirs(&self, allowlist: &Allowlist) -> Vec<Vec<String>> {
