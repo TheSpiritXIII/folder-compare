@@ -30,7 +30,7 @@ pub fn stats(
 		current += 1;
 	};
 
-	let index = if let Some(path) = index_file {
+	let mut index = if let Some(path) = index_file {
 		let mut index = RootIndex::open(path)
 			.with_context(|| format!("Unable to open index: {}", path.display()))?;
 		if let Some(path) = src {

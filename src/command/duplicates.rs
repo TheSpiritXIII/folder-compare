@@ -27,13 +27,14 @@ pub fn duplicates(
 	let mut index = RootIndex::open(index_file)
 		.with_context(|| format!("Unable to open index: {}", index_file.display()))?;
 
+	let total = index.file_count();
+	let mut current = 0;
+	let mut render_countdown = CountdownTimer::new(Duration::from_secs(1));
+	let sub_index = &mut index.all_mut();
+
 	let duplicates = if dirs {
 		println!("Comparing dirs...");
-		let total = index.file_count();
-		let mut current = 0usize;
-		let mut countdown = CountdownTimer::new(Duration::from_secs(1));
 
-		let sub_index = &mut index.all_mut();
 		let mut calculator = ChecksumCalculator::with_dir_match(
 			sub_index,
 			allowlist,
@@ -44,7 +45,7 @@ pub fn duplicates(
 		while let Some(file) = calculator.next() {
 			let path = file?.meta.path();
 			current += 1;
-			if countdown.passed() {
+			if render_countdown.passed() {
 				let percent = percentage(current, total);
 				clear_line();
 				print!("Processed {current} of {total} entries ({percent})...: {path}");
@@ -57,11 +58,6 @@ pub fn duplicates(
 		index.duplicate_dirs(allowlist)
 	} else {
 		println!("Comparing files...");
-		let total = index.file_count();
-		let mut current = 0usize;
-		let mut countdown = CountdownTimer::new(Duration::from_secs(1));
-
-		let sub_index = &mut index.all_mut();
 		let mut calculator = ChecksumCalculator::with_file_match(
 			sub_index,
 			allowlist,
@@ -74,7 +70,7 @@ pub fn duplicates(
 
 			// TODO: Add check-pointing for long-running operations.
 			current += 1;
-			if countdown.passed() {
+			if render_countdown.passed() {
 				let percent = percentage(current, total);
 				clear_line();
 				print!("Processed {current} of {total} entries ({percent})...: {path}");

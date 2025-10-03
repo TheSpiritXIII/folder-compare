@@ -195,10 +195,11 @@ impl RootIndex {
 
 	// TODO: Validate file extension?
 	// Stores the index entries as RON on the filesystem.
-	pub fn save(&self, path: impl AsRef<Path>) -> io::Result<()> {
+	pub fn save(&mut self, path: impl AsRef<Path>) -> io::Result<()> {
 		debug_assert!(self.validate());
 		let json = ron::ser::to_string_pretty(&self, ron::ser::PrettyConfig::default()).unwrap();
 		fs::write(path, json)?;
+		self.dirty = false;
 		Ok(())
 	}
 
