@@ -9,7 +9,6 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use super::sub_index::SubIndex;
-use crate::index::calculator;
 use crate::index::calculator::calculate_dir_matches;
 use crate::index::calculator::diff;
 use crate::index::calculator::duplicate_dirs;
@@ -19,6 +18,7 @@ use crate::index::model::normalized_path;
 use crate::index::model::Dir;
 use crate::index::model::File;
 use crate::index::model::NativeFileReader;
+use crate::index::store::FileMatchChecksumCalculator;
 use crate::index::store::SliceIndex;
 use crate::index::store::SortedSliceIndex;
 use crate::index::store::SortedSliceIndexOpts;
@@ -214,7 +214,7 @@ impl RootIndex {
 		Ok(index)
 	}
 
-	// TODO: Add check-pointing for long-running operations.
+	// TODO: Inline.
 	pub fn calculate_matches(
 		&mut self,
 		mut notifier: impl FnMut(&str),
@@ -223,25 +223,21 @@ impl RootIndex {
 		match_created: bool,
 		match_modified: bool,
 	) -> io::Result<()> {
-		let mut buf = Vec::with_capacity(BUF_SIZE);
-		let mut updated = false;
-		let list: Vec<_> = calculator::potential_file_matches(
-			&self.files,
+		let mut index = SubIndexMut {
+			files: &mut self.files,
+			dirs: &mut self.dirs,
+		};
+		let mut calculator = FileMatchChecksumCalculator::new(
+			&mut index,
 			allowlist,
 			match_name,
 			match_created,
 			match_modified,
-		)
-		.collect();
-		for file in list {
-			let file = &mut self.files[file];
-			notifier(file.meta.path());
-			if file.checksum.is_empty() {
-				file.checksum.calculate(&NativeFileReader, file.meta.path(), &mut buf)?;
-				updated = true;
-			}
+		);
+		while let Some(file) = calculator.next() {
+			notifier(file?.meta.path());
 		}
-		self.dirty = updated || self.dirty;
+		self.dirty = calculator.dirty() || self.dirty;
 		Ok(())
 	}
 

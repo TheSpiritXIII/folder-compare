@@ -63,6 +63,7 @@ pub fn duplicates(
 		index
 			.calculate_matches(
 				|path| {
+					// TODO: Add check-pointing for long-running operations.
 					last_path = path.to_string();
 					current += 1;
 					if countdown.passed() {
