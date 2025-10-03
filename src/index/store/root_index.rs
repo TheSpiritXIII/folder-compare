@@ -33,7 +33,7 @@ pub struct RootIndex {
 
 	#[serde(skip_serializing)]
 	#[serde(skip_deserializing)]
-	dirty: bool,
+	pub(super) dirty: bool,
 }
 
 impl RootIndex {
@@ -215,10 +215,15 @@ impl RootIndex {
 
 	// TODO: Can we make this conversion automatic?
 	pub fn all_mut(&mut self) -> SubIndexMut<'_> {
+		let file_len = self.files.len();
+		let dir_len = self.dirs.len();
+
 		SubIndexMut {
-			files: &mut self.files,
-			dirs: &mut self.dirs,
-			dirty: &mut self.dirty,
+			root: self,
+			file_start: 0,
+			file_end: file_len,
+			dir_start: 0,
+			dir_end: dir_len,
 		}
 	}
 

@@ -28,58 +28,53 @@ pub fn duplicates(
 		.with_context(|| format!("Unable to open index: {}", index_file.display()))?;
 
 	let total = index.file_count();
-	let mut current = 0;
-	let mut render_countdown = CountdownTimer::new(Duration::from_secs(1));
 	let sub_index = &mut index.all_mut();
-
-	let duplicates = if dirs {
+	let mut calculator = if dirs {
 		println!("Comparing dirs...");
-
-		let mut calculator = ChecksumCalculator::with_dir_match(
+		ChecksumCalculator::with_dir_match(
 			sub_index,
 			allowlist,
 			match_name,
 			match_created,
 			match_modified,
-		);
-		while let Some(file) = calculator.next() {
-			let path = file?.meta.path();
-			current += 1;
-			if render_countdown.passed() {
-				let percent = percentage(current, total);
-				clear_line();
-				print!("Processed {current} of {total} entries ({percent})...: {path}");
-				io::stdout().flush().unwrap();
-			}
-		}
-
-		clear_line();
-		println!("Gathering duplicates...");
-		index.duplicate_dirs(allowlist)
+		)
 	} else {
 		println!("Comparing files...");
-		let mut calculator = ChecksumCalculator::with_file_match(
+		ChecksumCalculator::with_file_match(
 			sub_index,
 			allowlist,
 			match_name,
 			match_created,
 			match_modified,
-		);
-		while let Some(file) = calculator.next() {
-			let path = file?.meta.path();
+		)
+	};
 
-			// TODO: Add check-pointing for long-running operations.
-			current += 1;
-			if render_countdown.passed() {
-				let percent = percentage(current, total);
-				clear_line();
-				print!("Processed {current} of {total} entries ({percent})...: {path}");
-				io::stdout().flush().unwrap();
-			}
+	let mut current = 0;
+	let mut render_countdown = CountdownTimer::new(Duration::from_secs(1));
+	let mut snapshotting_countdown = CountdownTimer::new(Duration::from_secs(60));
+
+	while let Some(file) = calculator.next() {
+		let path = file?.meta.path();
+		current += 1;
+		if render_countdown.passed() {
+			let percent = percentage(current, total);
+			clear_line();
+			print!("Processed {current} of {total} entries ({percent})...: {path}");
+			io::stdout().flush().unwrap();
 		}
+		if snapshotting_countdown.passed() && calculator.index_mut().root_mut().dirty() {
+			clear_line();
+			println!("Snapshotting index...");
+			calculator.index_mut().root_mut().save(index_file)?;
+		}
+	}
 
-		clear_line();
-		println!("Gathering duplicates...");
+	clear_line();
+	println!("Gathering duplicates...");
+
+	let duplicates = if dirs {
+		index.duplicate_dirs(allowlist)
+	} else {
 		index.duplicates(allowlist)
 	};
 
