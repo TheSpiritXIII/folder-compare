@@ -1,0 +1,76 @@
+use std::io;
+use std::io::Write;
+use std::path::PathBuf;
+use std::time::Duration;
+
+use anyhow::Context;
+use anyhow::Result;
+
+use crate::index::Allowlist;
+use crate::index::ChecksumCalculator;
+use crate::index::Index;
+use crate::index::RootIndex;
+use crate::util::display::percentage;
+use crate::util::terminal::clear_line;
+use crate::util::timer::CountdownTimer;
+
+#[allow(clippy::fn_params_excessive_bools)]
+pub fn redundant(
+	index_file: &PathBuf,
+	allowlist: &Allowlist,
+	match_name: bool,
+	match_created: bool,
+	match_modified: bool,
+) -> Result<()> {
+	println!("Opening index file...");
+	let mut index = RootIndex::open(index_file)
+		.with_context(|| format!("Unable to open index: {}", index_file.display()))?;
+
+	let total = index.file_count();
+	let sub_index = &mut index.all_mut();
+	println!("Comparing files...");
+	let mut calculator = ChecksumCalculator::with_file_match(
+		sub_index,
+		allowlist,
+		match_name,
+		match_created,
+		match_modified,
+	);
+
+	let mut current = 0;
+	let mut render_countdown = CountdownTimer::new(Duration::from_secs(1));
+	let mut snapshotting_countdown = CountdownTimer::new(Duration::from_secs(60));
+
+	while let Some(file) = calculator.next() {
+		let path = file?.meta.path();
+		current += 1;
+		if render_countdown.passed() {
+			let percent = percentage(current, total);
+			clear_line();
+			print!("Processed {current} of {total} entries ({percent})...: {path}");
+			io::stdout().flush().unwrap();
+		}
+		if snapshotting_countdown.passed() && calculator.index_mut().root_mut().dirty() {
+			clear_line();
+			println!("Snapshotting index...");
+			calculator.index_mut().root_mut().save(index_file)?;
+		}
+	}
+
+	clear_line();
+	println!("Gathering duplicates...");
+	let duplicates = index.duplicates(allowlist);
+
+	if duplicates.is_empty() {
+		println!("No duplicates found");
+	} else {
+		unimplemented!();
+	}
+
+	if index.dirty() {
+		println!("Updating index with checksums...");
+		index.save(index_file)?;
+	}
+
+	Ok(())
+}

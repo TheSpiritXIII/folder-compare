@@ -34,6 +34,8 @@ enum Command {
 	Diff(DiffSubcommand),
 	/// Finds duplicates in a folder.
 	Duplicates(Duplicates),
+	/// Finds folders whose contents are duplicated elsewhere.
+	Redundant(Redundant),
 }
 
 #[derive(Args, Debug)]
@@ -89,6 +91,19 @@ struct Duplicates {
 	/// Finds duplicate dirs. If unset, finds duplicate files instead.
 	#[clap(long)]
 	dirs: bool,
+
+	#[command(flatten)]
+	matches: Matches,
+}
+
+#[derive(Args, Debug)]
+struct Redundant {
+	/// Path to the index file.
+	#[clap(long)]
+	index_file: PathBuf,
+
+	#[command(flatten)]
+	filter: Filter,
 
 	#[command(flatten)]
 	matches: Matches,
@@ -155,6 +170,19 @@ fn main() -> Result<()> {
 			command::duplicates(
 				&subcommand.index_file,
 				subcommand.dirs,
+				&allowlist,
+				subcommand.matches.name,
+				subcommand.matches.created,
+				subcommand.matches.modified,
+			)
+		}
+		Command::Redundant(subcommand) => {
+			let allowlist = Allowlist {
+				allow: subcommand.filter.allow,
+				deny: subcommand.filter.deny,
+			};
+			command::redundant(
+				&subcommand.index_file,
 				&allowlist,
 				subcommand.matches.name,
 				subcommand.matches.created,
