@@ -103,17 +103,14 @@ pub fn potential_file_matches<'a>(
 	)
 }
 
-pub fn duplicates(files: &[File], allowlist: &Allowlist) -> Vec<Vec<String>> {
-	let mut path_by_checksum = HashMap::<(Checksum, u64), Vec<String>>::new();
+pub fn duplicates<'a>(files: &'a [File], allowlist: &Allowlist) -> Vec<Vec<&'a File>> {
+	let mut path_by_checksum = HashMap::<(Checksum, u64), Vec<&File>>::new();
 	for file in files {
 		if !file.checksum.is_empty() {
 			if !allowlist.is_allowed(&file.meta.path) {
 				continue;
 			}
-			path_by_checksum
-				.entry((file.checksum.clone(), file.size))
-				.or_default()
-				.push(file.meta.path().to_string());
+			path_by_checksum.entry((file.checksum.clone(), file.size)).or_default().push(file);
 		}
 	}
 

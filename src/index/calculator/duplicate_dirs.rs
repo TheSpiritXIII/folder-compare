@@ -3,6 +3,7 @@ use std::time::SystemTime;
 
 use super::Allowlist;
 use crate::index::model::Checksum;
+use crate::index::model::Dir;
 use crate::index::store::SliceIndex;
 use crate::index::store::SortedSliceIndexOpts;
 use crate::index::Index;
@@ -125,9 +126,10 @@ pub fn potential_dir_matches(
 	})
 }
 
-pub fn duplicate_dirs(index: &SubIndex, allowlist: &Allowlist) -> Vec<Vec<String>> {
-	let mut dirs_by_checksums = HashMap::<(DirStats, Vec<Checksum>), Vec<String>>::new();
-	for (dir_index, dir) in index.dirs().iter().enumerate() {
+pub fn duplicate_dirs<'a>(index: &SubIndex<'a>, allowlist: &Allowlist) -> Vec<Vec<&'a Dir>> {
+	let mut dirs_by_checksums = HashMap::<(DirStats, Vec<Checksum>), Vec<&'a Dir>>::new();
+	let dirs = index.dirs;
+	for (dir_index, dir) in dirs.iter().enumerate() {
 		if !allowlist.is_allowed(&dir.meta.path) {
 			continue;
 		}
@@ -142,10 +144,7 @@ pub fn duplicate_dirs(index: &SubIndex, allowlist: &Allowlist) -> Vec<Vec<String
 			sub_index.files().iter().map(|entry| entry.checksum.clone()).collect();
 		file_checksums.sort();
 
-		dirs_by_checksums
-			.entry((stats, file_checksums))
-			.or_default()
-			.push(dir.meta.path().to_string());
+		dirs_by_checksums.entry((stats, file_checksums)).or_default().push(dir);
 	}
 
 	let mut matches = Vec::new();

@@ -227,7 +227,7 @@ impl RootIndex {
 		}
 	}
 
-	pub fn duplicates(&self, allowlist: &Allowlist) -> Vec<Vec<String>> {
+	pub fn duplicates(&self, allowlist: &Allowlist) -> Vec<Vec<&File>> {
 		duplicates(&self.files, allowlist)
 	}
 
@@ -255,7 +255,7 @@ impl RootIndex {
 		})
 	}
 
-	pub fn duplicate_dirs(&self, allowlist: &Allowlist) -> Vec<Vec<String>> {
+	pub fn duplicate_dirs(&self, allowlist: &Allowlist) -> Vec<Vec<&Dir>> {
 		duplicate_dirs(&self.all(), allowlist)
 	}
 

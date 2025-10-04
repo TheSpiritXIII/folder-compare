@@ -72,10 +72,18 @@ pub fn duplicates(
 	clear_line();
 	println!("Gathering duplicates...");
 
-	let duplicates = if dirs {
-		index.duplicate_dirs(allowlist)
+	let duplicates: Vec<_> = if dirs {
+		index
+			.duplicate_dirs(allowlist)
+			.iter()
+			.map(|dir_list| dir_list.iter().map(|dir| dir.meta.path()).collect::<Vec<_>>())
+			.collect()
 	} else {
-		index.duplicates(allowlist)
+		index
+			.duplicates(allowlist)
+			.iter()
+			.map(|file_list| file_list.iter().map(|file| file.meta.path()).collect())
+			.collect()
 	};
 
 	if duplicates.is_empty() {
