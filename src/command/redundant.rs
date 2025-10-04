@@ -14,7 +14,6 @@ use crate::util::display::percentage;
 use crate::util::terminal::clear_line;
 use crate::util::timer::CountdownTimer;
 
-#[allow(clippy::fn_params_excessive_bools)]
 pub fn redundant(
 	index_file: &PathBuf,
 	allowlist: &Allowlist,
@@ -64,9 +63,10 @@ pub fn redundant(
 	if duplicates.is_empty() {
 		println!("No duplicates found");
 	} else {
-		let files = duplicates.into_iter().flatten().cloned().collect();
+		let files = duplicates.clone().into_iter().flatten().cloned().collect();
 		// TODO: Might need to insert empty directories too.
 		let duplicate_index = RootIndex::with_files(files);
+		println!("Redundant files: ");
 		for dir in &duplicate_index.dirs {
 			let Some(sub_index_original) = index.sub_index(dir.meta.path()) else {
 				continue;
@@ -75,7 +75,28 @@ pub fn redundant(
 				continue;
 			};
 			if sub_index_original.matches(&sub_index_duplicate) {
-				println!("Redundant directory: {}", dir.meta.path());
+				println!("- {}", dir.meta.path());
+				for file in sub_index_duplicate.files {
+					'duplicate_finder: for duplicate_list in &duplicates {
+						for duplicate in duplicate_list {
+							if file.meta.path() == duplicate.meta.path() {
+								println!(
+									"  - duplicate {}: {:?}",
+									file.meta.path(),
+									duplicate_list
+										.iter()
+										.map(|file| file.meta.path())
+										.filter(|path| path != &file.meta.path())
+										.collect::<Vec<_>>()
+								);
+								break 'duplicate_finder;
+							}
+						}
+					}
+				}
+				for dir in sub_index_duplicate.dirs {
+					println!("  - dir {}", dir.meta.path());
+				}
 			}
 		}
 	}

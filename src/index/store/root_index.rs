@@ -273,12 +273,6 @@ impl RootIndex {
 		let dir_index = self.dir_index(&p)?;
 		let (dir_start, dir_end) = self.dir_children_indices(dir_index);
 		let (file_start, file_end) = self.dir_file_indices(&p);
-		println!(
-			"start {} end {}, real {}",
-			file_start,
-			file_end,
-			self.files[file_start].meta.path()
-		);
 		Some(SubIndex {
 			files: &self.files[file_start..file_end],
 			dirs: &self.dirs[dir_start..dir_end],
