@@ -22,7 +22,6 @@ pub fn normalized_path(path: impl AsRef<Path>) -> String {
 	normalized_path_str(&path.as_ref().to_string_lossy())
 }
 
-#[cfg(test)]
 pub fn parent_str(path: &str) -> Option<&str> {
 	if let Some(index) = path.rfind('/') {
 		return Some(&path[..index]);
@@ -72,7 +71,6 @@ impl Metadata {
 		&self.path
 	}
 
-	#[cfg(test)]
 	pub fn parent(&self) -> Option<&str> {
 		parent_str(&self.path)
 	}

@@ -24,6 +24,29 @@ impl SubIndex<'_> {
 			dirs: &self.dirs[dir_start..dir_end],
 		}
 	}
+
+	pub fn matches(&self, other: &SubIndex<'_>) -> bool {
+		if self.files.len() != other.files.len() {
+			return false;
+		}
+		if self.dirs.len() != other.dirs.len() {
+			return false;
+		}
+
+		let files_equal = self
+			.files
+			.iter()
+			.zip(other.files.iter())
+			.all(|(file_self, file_other)| file_self.eq(file_other));
+		if !files_equal {
+			return false;
+		}
+
+		self.dirs
+			.iter()
+			.zip(other.dirs.iter())
+			.all(|(dir_self, dir_other)| dir_self.meta.path.eq(&dir_other.meta.path))
+	}
 }
 
 impl SliceIndex for SubIndex<'_> {

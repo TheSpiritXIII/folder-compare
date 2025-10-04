@@ -64,7 +64,20 @@ pub fn redundant(
 	if duplicates.is_empty() {
 		println!("No duplicates found");
 	} else {
-		unimplemented!();
+		let files = duplicates.into_iter().flatten().cloned().collect();
+		// TODO: Might need to insert empty directories too.
+		let duplicate_index = RootIndex::with_files(files);
+		for dir in &duplicate_index.dirs {
+			let Some(sub_index_original) = index.sub_index(dir.meta.path()) else {
+				continue;
+			};
+			let Some(sub_index_duplicate) = duplicate_index.sub_index(dir.meta.path()) else {
+				continue;
+			};
+			if sub_index_original.matches(&sub_index_duplicate) {
+				println!("Redundant directory: {}", dir.meta.path());
+			}
+		}
 	}
 
 	if index.dirty() {

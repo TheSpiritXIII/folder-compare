@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::fs::{self};
 use std::io::{self};
@@ -16,6 +17,7 @@ use crate::index::calculator::Diff;
 use crate::index::model::normalized_path;
 use crate::index::model::Dir;
 use crate::index::model::File;
+use crate::index::model::Metadata;
 use crate::index::model::NativeFileReader;
 use crate::index::store::SliceIndex;
 use crate::index::store::SortedSliceIndex;
@@ -43,6 +45,34 @@ impl RootIndex {
 			dirs: Vec::new(),
 			dirty: false,
 		}
+	}
+
+	pub fn with_files(files: Vec<File>) -> Self {
+		let mut dir_path_set = HashSet::new();
+		for file in &files {
+			if let Some(parent) = file.meta.parent() {
+				dir_path_set.insert(parent);
+			}
+		}
+		let dirs = dir_path_set
+			.iter()
+			.map(|path| {
+				Dir {
+					meta: Metadata {
+						path: (*path).to_string(),
+						created_time: std::time::SystemTime::UNIX_EPOCH,
+						modified_time: std::time::SystemTime::UNIX_EPOCH,
+						hidden: false,
+					},
+				}
+			})
+			.collect();
+
+		let mut index = Self::new();
+		index.files = files;
+		index.dirs = dirs;
+		index.normalize();
+		index
 	}
 
 	// Recursively finds all files in the given directory and adds them to the index.
